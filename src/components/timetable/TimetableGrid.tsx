@@ -11,6 +11,7 @@ import {
   PERIOD_HEIGHT,
   TIME_COLUMN_WIDTH,
 } from '../../domain/layout';
+import { createTimeAxis } from '../../domain/timeAxis';
 import type { Entry, PeriodSlot, SemesterConfig, Weekday } from '../../types/entry';
 import { DayColumn } from './DayColumn';
 import { DayHeader } from './DayHeader';
@@ -45,11 +46,20 @@ export function TimetableGrid({
 }: TimetableGridProps) {
   const metrics = useMemo(() => buildRowMetrics(periods), [periods]);
 
+  /**
+   * 真实时间 → 像素的映射器。
+   *
+   * 必须在这里建好并传给 layoutWeek。漏传的话，「按钟点」表达的事件拿不到映射，
+   * getEntryGeometry 会直接返回零高度，事件在网格上彻底消失 ——
+   * 数据还在 localStorage 里，但用户看到的是一片空白，会以为记录丢了。
+   */
+  const axis = useMemo(() => createTimeAxis(periods, metrics), [periods, metrics]);
+
   // 先按周次过滤（单双周在这一步被消化），再算位置
   const columns = useMemo(() => {
     const visible = filterEntriesForWeek(entries, currentWeek);
-    return layoutWeek(visible, metrics);
-  }, [entries, currentWeek, metrics]);
+    return layoutWeek(visible, metrics, axis);
+  }, [entries, currentWeek, metrics, axis]);
 
   const canvasStyle = {
     width: TIME_COLUMN_WIDTH + DAY_WIDTH * WEEKDAYS.length,

@@ -27,6 +27,15 @@ export const HEADER_HEIGHT = 52;
 export const BLOCK_INSET = 2;
 /** 同一天同一时段最多并排显示几道 */
 export const MAX_LANES = 2;
+/**
+ * 钟点事件的最小可见高度。
+ *
+ * 网格行高固定，课间空档在像素上被压缩：第 2 节 09:55 结束和第 3 节 10:15 开始
+ * 落在**同一个 y 坐标**上（同属上午组，中间没有分组空档）。于是 09:58~10:05
+ * 这样的事件会算出零高度，被 layoutDay 过滤掉 —— 事件彻底消失，
+ * 用户会以为数据丢了。给它一个高度下限，至少留一条窄块。
+ */
+export const MIN_CLOCK_HEIGHT = 20;
 
 /**
  * 真实时间 → 像素的映射器。
@@ -122,7 +131,16 @@ export function getEntryGeometry(
   const total = metrics.totalHeight;
   const top = Math.min(Math.max(axis.timeToY(time.start), 0), total);
   const bottom = Math.min(Math.max(axis.timeToY(time.end), 0), total);
-  return { top, height: Math.max(bottom - top, 0) };
+  const height = bottom - top;
+  if (height > 0) return { top, height };
+
+  // 高度为零有两种来源：① 整段时间落在被压缩的课间空档里；② 时间完全在网格范围外。
+  // 两种情况都补一个最小高度 —— 事件从网格上消失比位置略有偏差严重得多。
+  // 位置往上顶一点，避免原本贴着底边时块会超出网格。
+  return {
+    top: Math.min(top, Math.max(total - MIN_CLOCK_HEIGHT, 0)),
+    height: MIN_CLOCK_HEIGHT,
+  };
 }
 
 /** 已经算好位置的块。 */
