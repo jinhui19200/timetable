@@ -1,4 +1,7 @@
-import { PlusIcon } from '../components/common/Icon';
+import { useState } from 'react';
+import { BottomSheet } from '../components/common/BottomSheet';
+import { GearIcon, PlusIcon } from '../components/common/Icon';
+import { SettingsSheet } from '../components/config/SettingsSheet';
 import { EntrySheets } from '../components/entry/EntrySheets';
 import { TimetableGrid } from '../components/timetable/TimetableGrid';
 import { WeekSwitcher } from '../components/timetable/WeekSwitcher';
@@ -16,6 +19,7 @@ export function TimetablePage() {
   const { data } = useStore();
   const { week, setWeek } = useCurrentWeek(data.semester);
   const editor = useEntryEditor();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <>
@@ -31,8 +35,14 @@ export function TimetablePage() {
 
         <WeekSwitcher week={week} totalWeeks={data.semester.totalWeeks} onChange={setWeek} />
 
-        {/* 占位：右侧设置入口留到 M6（节次表 / 学期配置）接上，先占住宽度让周次保持居中 */}
-        <div className="page-header__spacer" />
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="设置"
+        >
+          <GearIcon size={22} />
+        </button>
       </div>
 
       <TimetableGrid
@@ -45,6 +55,10 @@ export function TimetablePage() {
       />
 
       <EntrySheets editor={editor} />
+
+      <BottomSheet open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+        <SettingsSheet />
+      </BottomSheet>
     </>
   );
 }

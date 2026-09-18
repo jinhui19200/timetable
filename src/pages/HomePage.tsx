@@ -1,4 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { BottomSheet } from '../components/common/BottomSheet';
+import { GearIcon } from '../components/common/Icon';
+import { SettingsSheet } from '../components/config/SettingsSheet';
 import { EntrySheets } from '../components/entry/EntrySheets';
 import { resolveEntryColor } from '../domain/colors';
 import { formatMonthDay, getWeekOfDate, toWeekday, weekdayLabel } from '../domain/date';
@@ -30,6 +33,7 @@ function startMinutes(entry: Entry, periods: PeriodSlot[]): number {
 export function HomePage() {
   const { data } = useStore();
   const editor = useEntryEditor();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const todayWeekday = toWeekday(today);
@@ -45,7 +49,16 @@ export function HomePage() {
   return (
     <>
       <div className="page-header">
+        <div className="page-header__spacer" />
         <span className="page-header__title">主页</span>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="设置"
+        >
+          <GearIcon size={22} />
+        </button>
       </div>
 
       <div className="page-scroll">
@@ -93,6 +106,10 @@ export function HomePage() {
       </div>
 
       <EntrySheets editor={editor} />
+
+      <BottomSheet open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+        <SettingsSheet />
+      </BottomSheet>
     </>
   );
 }

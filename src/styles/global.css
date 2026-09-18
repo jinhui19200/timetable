@@ -759,3 +759,75 @@ button {
 .form-button:disabled {
   opacity: 0.45;
 }
+
+/* ── 设置面板 ───────────────────────────────────────────── */
+
+.settings-group {
+  margin-bottom: 24px;
+}
+
+.settings-group__title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+/* 节次表的一行：节号 + 起止时间 + 删除 */
+.period-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.period-row--head {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.period-row--head span {
+  flex: 1;
+}
+
+.period-row--head span:last-child {
+  flex: none;
+  width: 32px;
+}
+
+.period-row .form-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  font-size: 13px;
+}
+
+/* 节号那一格不需要那么宽 */
+.period-row .form-input:first-child {
+  flex: none;
+  width: 44px;
+  text-align: center;
+}
+
+.period-row__remove {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.settings-clear {
+  width: 100%;
+  padding: 11px 0;
+  margin-top: 4px;
+}
