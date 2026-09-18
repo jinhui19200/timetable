@@ -292,10 +292,6 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
-.day-cell--gap {
-  background: var(--bg-subtle);
-}
-
 /* 可点的空格子：点它新建一条记录。
    按下必须给反馈，否则手指点下去毫无动静，用户会以为界面没响应。 */
 .day-cell--interactive {
@@ -341,6 +337,22 @@ button {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+}
+
+/*
+ * 被并排挤窄时改成单行省略。
+ *
+ * 窄列里如果还允许换行，中文会按字断开，变成「高等数 / 学 A1 / C-5- / 432」
+ * 这种碎片，比截断更难读。宽度够的时候不启用，仍然保留两行的完整显示。
+ */
+.entry-block--narrow .entry-block__title,
+.entry-block--narrow .entry-block__meta {
+  display: block;
+  -webkit-line-clamp: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
 }
 
 /* 同一天同一时段记录过多时，多余的压成一条色条 */

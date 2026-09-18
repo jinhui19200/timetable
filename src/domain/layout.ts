@@ -175,28 +175,62 @@ export function layoutDay(
     .filter((item) => item.height > 0)
     .sort((a, b) => a.top - b.top || a.height - b.height);
 
-  const laneEnds: number[] = [];
-  const assigned = measured.map((item) => {
-    let lane = laneEnds.findIndex((end) => end <= item.top);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(item.top + item.height);
-    } else {
-      laneEnds[lane] = item.top + item.height;
+  /**
+   * 先把「时间上互相重叠的块」切成若干组，每组独立分道。
+   *
+   * 必须分组，不能让整列共用同一个道数：只要某一天里有一处重叠，
+   * 整天所有块都会被压成半宽 —— 上午两门课撞了，晚上的课也跟着变窄。
+   * 按 top 排序后线性扫描即可：当前块的顶部已经越过组内最大底部，就说明
+   * 它和这一组谁都不重叠，可以另起一组。
+   */
+  const positioned: PositionedEntry[] = [];
+  let groupStart = 0;
+  let groupBottom = Number.NEGATIVE_INFINITY;
+
+  const flushGroup = (endExclusive: number) => {
+    const group = measured.slice(groupStart, endExclusive);
+    if (group.length === 0) return;
+
+    // 组内贪心分道：每个块放进第一个「末尾已经结束」的道里，放不下就新开一道
+    const laneEnds: number[] = [];
+    const assigned = group.map((item) => {
+      let lane = laneEnds.findIndex((end) => end <= item.top);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(item.top + item.height);
+      } else {
+        laneEnds[lane] = item.top + item.height;
+      }
+      return { ...item, lane };
+    });
+
+    const laneCount = Math.min(Math.max(laneEnds.length, 1), MAX_LANES);
+    for (const item of assigned) {
+      positioned.push({
+        entry: item.entry,
+        top: item.top,
+        height: item.height,
+        lane: Math.min(item.lane, MAX_LANES - 1),
+        laneCount,
+        // 超过 MAX_LANES 的块不消失，而是压成一条色条（列宽只有 100px，三道以上没法看）
+        collapsed: item.lane >= MAX_LANES,
+      });
     }
-    return { ...item, lane };
-  });
+  };
 
-  const laneCount = Math.min(Math.max(laneEnds.length, 1), MAX_LANES);
+  for (let index = 0; index < measured.length; index += 1) {
+    const item = measured[index];
+    if (item.top >= groupBottom) {
+      flushGroup(index);
+      groupStart = index;
+      groupBottom = item.top + item.height;
+    } else {
+      groupBottom = Math.max(groupBottom, item.top + item.height);
+    }
+  }
+  flushGroup(measured.length);
 
-  return assigned.map((item) => ({
-    entry: item.entry,
-    top: item.top,
-    height: item.height,
-    lane: Math.min(item.lane, MAX_LANES - 1),
-    laneCount,
-    collapsed: item.lane >= MAX_LANES,
-  }));
+  return positioned;
 }
 
 /** 按星期分组，并算好每组的块位置。返回 7 个数组，下标 0 对应周一。 */

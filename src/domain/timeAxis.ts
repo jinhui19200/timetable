@@ -1,8 +1,8 @@
 import type { PeriodSlot } from '../types/entry';
-import type { RowMetrics } from './layout';
+import type { RowMetrics, TimeAxis } from './layout';
 
 /**
- * 真实时间 ↔ 像素的分段线性映射。
+ * 真实时间 → 像素的分段线性映射。
  *
  * ────────────────────────────────────────────────────────────────
  * 为什么需要它：网格的行高是固定的（每节 56px），但真实时间轴并不均匀。
@@ -24,24 +24,10 @@ import type { RowMetrics } from './layout';
  * 那时这个映射失去意义是符合预期的。
  */
 
-/** 真实时间 → 像素的映射器。layout.ts 通过这个接口解耦，不直接依赖具体实现。 */
-export interface TimeAxis {
-  timeToY(time: string): number;
-  yToTime(y: number): string;
-}
-
 /** 'HH:mm' → 当天第几分钟 */
 function toMinutes(time: string): number {
   const [hours, minutes] = time.split(':').map(Number);
   return (hours ?? 0) * 60 + (minutes ?? 0);
-}
-
-/** 分钟 → 'HH:mm' */
-function toClock(minutes: number): string {
-  const clamped = Math.min(Math.max(Math.round(minutes), 0), 24 * 60 - 1);
-  const hours = Math.floor(clamped / 60);
-  const mins = clamped % 60;
-  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
 interface Anchor {
@@ -98,36 +84,5 @@ export function createTimeAxis(periods: PeriodSlot[], metrics: RowMetrics): Time
     return last.y;
   };
 
-  const yToTime = (y: number): string => {
-    if (anchors.length === 0) return '00:00';
-
-    const first = anchors[0];
-    const last = anchors[anchors.length - 1];
-
-    if (y <= first.y) {
-      const reference = anchors[1] ?? first;
-      const ratio = ratioBetween(first, reference);
-      return toClock(ratio === 0 ? first.minutes : first.minutes + (y - first.y) / ratio);
-    }
-
-    if (y >= last.y) {
-      const reference = anchors[anchors.length - 2] ?? last;
-      const ratio = ratioBetween(reference, last);
-      return toClock(ratio === 0 ? last.minutes : last.minutes + (y - last.y) / ratio);
-    }
-
-    for (let index = 0; index < anchors.length - 1; index += 1) {
-      const from = anchors[index];
-      const to = anchors[index + 1];
-      if (y >= from.y && y <= to.y) {
-        const span = to.y - from.y;
-        if (span === 0) return toClock(from.minutes);
-        return toClock(from.minutes + ((y - from.y) / span) * (to.minutes - from.minutes));
-      }
-    }
-
-    return toClock(last.minutes);
-  };
-
-  return { timeToY, yToTime };
+  return { timeToY };
 }

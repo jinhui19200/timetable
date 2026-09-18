@@ -30,10 +30,15 @@ export function EntryBlock({ positioned, onSelect }: EntryBlockProps) {
 
   const label = entry.location ? `${entry.title}，${entry.location}` : entry.title;
 
+  // 被并排挤窄（同一天同一时段有重叠记录）时换成单行省略的排版
+  const isNarrow = laneCount > 1;
+
   return (
     <button
       type="button"
-      className={`entry-block${collapsed ? ' entry-block--collapsed' : ''}`}
+      className={`entry-block${collapsed ? ' entry-block--collapsed' : ''}${
+        isNarrow ? ' entry-block--narrow' : ''
+      }`}
       style={style}
       onClick={() => onSelect(entry)}
       aria-label={label}

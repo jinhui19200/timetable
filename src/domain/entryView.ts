@@ -27,8 +27,3 @@ export function describeEntryTime(entry: Entry, periods: PeriodSlot[]): EntryTim
     period: '自定义时间',
   };
 }
-
-/** 课程类型 / 学分这些字段只有课程才有，统一在这里判断，避免各处散落 kind 检查。 */
-export function isCourse(entry: Entry): entry is Extract<Entry, { kind: 'course' }> {
-  return entry.kind === 'course';
-}
