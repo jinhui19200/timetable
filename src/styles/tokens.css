@@ -1,15 +1,16 @@
 /**
  * 设计令牌。
  *
- * 尺寸类变量（--period-h / --day-w 等）由 JS 在网格容器上注入，
+ * 尺寸类变量（--period-h / --day-w-min 等）由 JS 在网格容器上注入，
  * 取值来自 domain/layout.ts 的常量 —— 这样 JS 算坐标和 CSS 排尺寸用的是同一套数字。
  * 这里只给一份兜底默认值，防止组件单独使用时报 undefined。
  */
 
 :root {
-  --period-h: 56px;
+  --period-h: 64px;
   --group-gap: 24px;
-  --day-w: 100px;
+  --day-w-min: 46px;
+  --day-w-max: 100px;
   --time-col-w: 48px;
   --header-h: 52px;
 

@@ -13,12 +13,31 @@ import { weekRuleContains, weekRulesOverlap } from './weeks';
  * 保证 JS 计算的坐标和 CSS 渲染的尺寸用的是同一套数字，不会各说各话。
  */
 
-/** 单个节次行的高度 */
-export const PERIOD_HEIGHT = 56;
+/**
+ * 单个节次行的高度。
+ *
+ * 取 64 而不是更紧凑的值，是为了给换行留地方：手机上一列只有 50px 左右宽，
+ * 「计算与人工智能基础A」这种课名要断成三行才放得下。行太矮的话文字会被
+ * line-clamp 截掉，反而看不出是什么课。
+ */
+export const PERIOD_HEIGHT = 64;
 /** 上午 / 下午 / 晚上之间的额外空档高度 */
 export const GROUP_GAP = 24;
-/** 一天的列宽 */
-export const DAY_WIDTH = 100;
+/**
+ * 一天列宽的下限。
+ *
+ * 低于这个宽度中文就断得没法读了，宁可让网格横向滚动兜底。
+ * 注意实际列宽由 CSS 用 flex 平分容器宽度决定（见 global.css 的 .day-column），
+ * 不在这里写死 —— 目标是让周一到周日一屏铺满。
+ */
+export const MIN_DAY_WIDTH = 46;
+/**
+ * 一天列宽的上限。
+ *
+ * 屏幕很宽时（平板、桌面浏览器）不必把列拉得太开，否则一列 160px 配 64px 的行高
+ * 会显得很空，视线也要横跨半个屏幕才看得完一天。
+ */
+export const MAX_DAY_WIDTH = 100;
 /** 左侧节次时间列的宽度 */
 export const TIME_COLUMN_WIDTH = 48;
 /** 顶部星期栏的高度 */
@@ -27,6 +46,7 @@ export const HEADER_HEIGHT = 52;
 export const BLOCK_INSET = 2;
 /** 同一天同一时段最多并排显示几道 */
 export const MAX_LANES = 2;
+
 /**
  * 钟点事件的最小可见高度。
  *
@@ -162,8 +182,9 @@ export interface PositionedEntry {
  * 分道用贪心算法：按 top 排序后，每个块放进第一个「末尾已经结束」的道里，
  * 放不下就新开一道。这和日历应用排重叠日程是同一个思路。
  *
- * 超过 MAX_LANES 的块不会消失，而是标成 collapsed —— 列宽只有 100px，
- * 三道以上就窄到没法看，所以多余的信息压成一条色条，保证数据仍然可见。
+ * 超过 MAX_LANES 的块不会消失，而是标成 collapsed —— 手机上一列只有 50px 左右，
+ * 再切三道就只剩十几像素，连一个汉字都放不下，所以多余的信息压成一条色条，
+ * 保证数据仍然可见（点一下照样能打开详情）。
  */
 export function layoutDay(
   entries: Entry[],
@@ -212,7 +233,7 @@ export function layoutDay(
         height: item.height,
         lane: Math.min(item.lane, MAX_LANES - 1),
         laneCount,
-        // 超过 MAX_LANES 的块不消失，而是压成一条色条（列宽只有 100px，三道以上没法看）
+        // 超过 MAX_LANES 的块不消失，而是压成一条色条（窄列里切三道就没法看了）
         collapsed: item.lane >= MAX_LANES,
       });
     }

@@ -5,7 +5,7 @@ import { SettingsSheet } from '../components/config/SettingsSheet';
 import { EntrySheets } from '../components/entry/EntrySheets';
 import { resolveEntryColor } from '../domain/colors';
 import { formatMonthDay, getWeekOfDate, toWeekday, weekdayLabel } from '../domain/date';
-import { describeEntryTime } from '../domain/entryView';
+import { CUSTOM_TIME_LABEL, describeEntryTime } from '../domain/entryView';
 import { filterEntriesForWeek } from '../domain/layout';
 import { useEntryEditor } from '../hooks/useEntryEditor';
 import { useStore } from '../store/useStore';
@@ -80,6 +80,16 @@ export function HomePage() {
             todayEntries.map((entry) => {
               const color = resolveEntryColor(entry);
               const time = describeEntryTime(entry, data.periods);
+
+              // 钟点事件没有节次，拼上去只会多出一句「自定义时间」
+              const timeText =
+                time.period === CUSTOM_TIME_LABEL ? time.clock : `${time.clock} ${time.period}`;
+
+              // 教师只有课程才有。这里是 discriminated union 在起作用：
+              // 不先判断 kind 就取 teacher，编译器会直接报错。
+              const teacher = entry.kind === 'course' ? entry.teacher : undefined;
+              const placeText = [entry.location, teacher].filter(Boolean).join(' · ');
+
               return (
                 <button
                   key={entry.id}
@@ -94,9 +104,16 @@ export function HomePage() {
                       {entry.title}
                     </span>
                     <span className="today-card__meta" style={{ color: color.ink, opacity: 0.78 }}>
-                      {time.clock}
-                      {entry.location ? ` · ${entry.location}` : ''}
+                      {timeText}
                     </span>
+                    {placeText ? (
+                      <span
+                        className="today-card__meta"
+                        style={{ color: color.ink, opacity: 0.78 }}
+                      >
+                        {placeText}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               );

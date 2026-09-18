@@ -1,4 +1,15 @@
-import { describeEntryTime } from '../../domain/entryView';
+import type { ReactNode } from 'react';
+import {
+  CalendarIcon,
+  ClockIcon,
+  CreditIcon,
+  GridIcon,
+  ListIcon,
+  NoteIcon,
+  PersonIcon,
+  PinIcon,
+} from '../common/Icon';
+import { CUSTOM_TIME_LABEL, describeEntryTime } from '../../domain/entryView';
 import { describeWeekRule } from '../../domain/weeks';
 import type { Entry, PeriodSlot } from '../../types/entry';
 
@@ -12,7 +23,12 @@ interface EntryDetailSheetProps {
 interface DetailRow {
   label: string;
   value: string;
+  /** 行首的小图标，照着参考截图配 */
+  icon: ReactNode;
 }
+
+/** 详情行图标统一尺寸，和 14px 的文字视觉重量相当 */
+const ROW_ICON_SIZE = 17;
 
 /** 只渲染有值的行，避免详情面板出现一堆「—」 */
 function buildRows(entry: Entry, periods: PeriodSlot[]): DetailRow[] {
@@ -20,20 +36,34 @@ function buildRows(entry: Entry, periods: PeriodSlot[]): DetailRow[] {
   const rows: DetailRow[] = [];
 
   if (entry.kind === 'course') {
-    if (entry.teacher) rows.push({ label: '任课教师', value: entry.teacher });
-    rows.push({ label: '上课时间', value: time.clock });
-    if (entry.location) rows.push({ label: '上课地点', value: entry.location });
-    if (entry.courseType) rows.push({ label: '课程类型', value: entry.courseType });
-    if (entry.credit !== undefined) rows.push({ label: '学分', value: String(entry.credit) });
-    rows.push({ label: '节次', value: time.period });
+    if (entry.teacher) {
+      rows.push({ label: '任课教师', value: entry.teacher, icon: <PersonIcon size={ROW_ICON_SIZE} /> });
+    }
+    rows.push({ label: '上课时间', value: time.clock, icon: <ClockIcon size={ROW_ICON_SIZE} /> });
+    if (entry.location) {
+      rows.push({ label: '上课地点', value: entry.location, icon: <PinIcon size={ROW_ICON_SIZE} /> });
+    }
+    if (entry.courseType) {
+      rows.push({ label: '课程类型', value: entry.courseType, icon: <GridIcon size={ROW_ICON_SIZE} /> });
+    }
+    if (entry.credit !== undefined) {
+      rows.push({ label: '学分', value: String(entry.credit), icon: <CreditIcon size={ROW_ICON_SIZE} /> });
+    }
+    rows.push({ label: '节次', value: time.period, icon: <ListIcon size={ROW_ICON_SIZE} /> });
   } else {
-    rows.push({ label: '时间', value: time.clock });
-    if (entry.location) rows.push({ label: '地点', value: entry.location });
-    if (time.period !== '自定义时间') rows.push({ label: '节次', value: time.period });
+    rows.push({ label: '时间', value: time.clock, icon: <ClockIcon size={ROW_ICON_SIZE} /> });
+    if (entry.location) {
+      rows.push({ label: '地点', value: entry.location, icon: <PinIcon size={ROW_ICON_SIZE} /> });
+    }
+    if (time.period !== CUSTOM_TIME_LABEL) {
+      rows.push({ label: '节次', value: time.period, icon: <ListIcon size={ROW_ICON_SIZE} /> });
+    }
   }
 
-  rows.push({ label: '周次', value: describeWeekRule(entry.weeks) });
-  if (entry.note) rows.push({ label: '备注', value: entry.note });
+  rows.push({ label: '周次', value: describeWeekRule(entry.weeks), icon: <CalendarIcon size={ROW_ICON_SIZE} /> });
+  if (entry.note) {
+    rows.push({ label: '备注', value: entry.note, icon: <NoteIcon size={ROW_ICON_SIZE} /> });
+  }
 
   return rows;
 }
@@ -60,6 +90,7 @@ export function EntryDetailSheet({ entry, periods, onEdit, onDelete }: EntryDeta
       <div>
         {rows.map((row) => (
           <div key={row.label} className="detail-row">
+            <span className="detail-row__icon">{row.icon}</span>
             <span className="detail-row__label">{row.label}</span>
             <span className="detail-row__value">{row.value}</span>
           </div>

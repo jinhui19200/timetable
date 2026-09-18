@@ -83,6 +83,7 @@ app/
 - **不要给事件加 `teacher` / `credit` 字段。** 课程和事件是 discriminated union，靠 `kind` 字段区分，编译器会强制你先判断 `kind` 才能取这些字段。
 - **TypeScript 锁在 `~5.9.3`。** `typescript-eslint@8` 的 peerDependencies 是 `typescript >=4.8.4 <6.1.0`，装最新的 7.x 会让 lint 直接起不来。
 - **时间一律存 `'HH:mm'` 字符串**，不存 Date 对象，避免时区与夏令时偏移。
+- **网格列宽不写死。** 列宽由 CSS 用 flex 平分容器宽度（上下限见 `layout.ts` 的 `MIN_DAY_WIDTH` / `MAX_DAY_WIDTH`），目标是让周一~周日**一屏铺满、不用横向滑动**。`layoutDay` 只算纵向坐标和道号，完全不碰像素宽度 —— 所以调列宽不需要动任何布局计算，这也是当初把分道结果设计成 `lane` / `laneCount` 而不是像素的原因。
 
 ## 开发约定
 

@@ -3,11 +3,12 @@ import type { CSSProperties } from 'react';
 import { getDateOfWeekday, WEEKDAYS } from '../../domain/date';
 import {
   buildRowMetrics,
-  DAY_WIDTH,
   filterEntriesForWeek,
   GROUP_GAP,
   HEADER_HEIGHT,
   layoutWeek,
+  MAX_DAY_WIDTH,
+  MIN_DAY_WIDTH,
   PERIOD_HEIGHT,
   TIME_COLUMN_WIDTH,
 } from '../../domain/layout';
@@ -35,6 +36,10 @@ interface TimetableGridProps {
  * 用 JS 同步在移动端很容易出现跟不上手指的抖动。
  *
  * 尺寸常量从 domain/layout.ts 注入成 CSS 变量，保证 JS 算坐标和 CSS 排尺寸同源。
+ *
+ * 列宽刻意不写死：canvas 给一个 min-width 兜底，七列用 flex 平分剩余宽度，
+ * 所以周一到周日能一屏铺满、不用横向滑动。只有屏幕窄到连 MIN_DAY_WIDTH 都放不下时
+ * 才出现横向滚动。纵向坐标由 metrics 算好，和列宽无关，因此改列宽不影响布局计算。
  */
 export function TimetableGrid({
   entries,
@@ -62,10 +67,12 @@ export function TimetableGrid({
   }, [entries, currentWeek, metrics, axis]);
 
   const canvasStyle = {
-    width: TIME_COLUMN_WIDTH + DAY_WIDTH * WEEKDAYS.length,
+    // 只有极窄的屏幕才需要横向滚动；正常手机宽度下七列会平分屏宽
+    minWidth: TIME_COLUMN_WIDTH + MIN_DAY_WIDTH * WEEKDAYS.length,
     '--period-h': `${PERIOD_HEIGHT}px`,
     '--group-gap': `${GROUP_GAP}px`,
-    '--day-w': `${DAY_WIDTH}px`,
+    '--day-w-min': `${MIN_DAY_WIDTH}px`,
+    '--day-w-max': `${MAX_DAY_WIDTH}px`,
     '--time-col-w': `${TIME_COLUMN_WIDTH}px`,
     '--header-h': `${HEADER_HEIGHT}px`,
   } as CSSProperties;

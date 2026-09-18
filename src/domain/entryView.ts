@@ -15,6 +15,15 @@ export interface EntryTimeLabels {
   period: string;
 }
 
+/**
+ * 「按钟点表达」时 period 字段的取值。
+ *
+ * 调用方靠它判断该不该显示节次那一行 —— 钟点事件本来就没有节次，显示「自定义时间」
+ * 等于把内部状态漏给用户看。抽成常量是因为详情面板和主页卡片都要做这个判断，
+ * 两边各写一遍字面量迟早会漂移。
+ */
+export const CUSTOM_TIME_LABEL = '自定义时间';
+
 export function describeEntryTime(entry: Entry, periods: PeriodSlot[]): EntryTimeLabels {
   if (entry.time.mode === 'period') {
     return {
@@ -24,6 +33,6 @@ export function describeEntryTime(entry: Entry, periods: PeriodSlot[]): EntryTim
   }
   return {
     clock: `${entry.time.start} ~ ${entry.time.end}`,
-    period: '自定义时间',
+    period: CUSTOM_TIME_LABEL,
   };
 }

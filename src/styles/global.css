@@ -176,6 +176,8 @@ button {
 
 .grid-canvas {
   position: relative;
+  /* 铺满可用宽度，让七列用 flex 平分；min-width 由 JS 注入，只在极窄屏兜底 */
+  width: 100%;
   /* 让最后一行也有下边距，不至于贴着底部标签栏 */
   padding-bottom: 12px;
 }
@@ -213,9 +215,11 @@ button {
   color: var(--text-primary);
 }
 
+/* 七天平分剩余宽度，让整周一屏可见；上下限保证文字既不断得没法读、也不拉得过开 */
 .day-header {
-  flex: none;
-  width: var(--day-w);
+  flex: 1 1 0;
+  min-width: var(--day-w-min);
+  max-width: var(--day-w-max);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -276,12 +280,16 @@ button {
 
 .grid-days {
   display: flex;
+  /* 吃掉左侧节次列之外的剩余宽度，再交给七列平分 */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .day-column {
   position: relative;
-  flex: none;
-  width: var(--day-w);
+  flex: 1 1 0;
+  min-width: var(--day-w-min);
+  max-width: var(--day-w-max);
   border-right: 1px solid var(--border);
 }
 
@@ -466,8 +474,8 @@ button {
 
 .detail-row {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
@@ -477,9 +485,17 @@ button {
   border-bottom: none;
 }
 
+/* 图标用浅灰，不跟正文抢注意力 —— 它只是帮眼睛定位，不是信息本身 */
+.detail-row__icon {
+  flex: none;
+  display: flex;
+  color: var(--text-tertiary);
+}
+
+/* 不设固定宽度：所有图标等宽，标签自然左对齐在同一列，
+   值靠 flex:1 + text-align:right 右对齐，两侧都齐 */
 .detail-row__label {
   flex: none;
-  width: 76px;
   color: var(--text-secondary);
 }
 
