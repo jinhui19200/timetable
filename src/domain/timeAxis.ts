@@ -1,3 +1,4 @@
+import { parseClock } from './clock';
 import type { PeriodSlot } from '../types/entry';
 import type { RowMetrics, TimeAxis } from './layout';
 
@@ -5,8 +6,8 @@ import type { RowMetrics, TimeAxis } from './layout';
  * 真实时间 → 像素的分段线性映射。
  *
  * ────────────────────────────────────────────────────────────────
- * 为什么需要它：网格的行高是固定的（每节 56px），但真实时间轴并不均匀。
- * 默认节次表里，第 2 节结束到第 3 节开始有 20 分钟空档，
+ * 为什么需要它：网格每节的行高是固定的（见 layout.ts 的 PERIOD_HEIGHT），
+ * 但真实时间轴并不均匀。默认节次表里，第 2 节结束到第 3 节开始有 20 分钟空档，
  * 而第 4 节结束到第 5 节开始只有 5 分钟 —— 它们在网格里占的像素却一样。
  * 所以「19:30 落在哪个位置」不能用简单的比例算，必须按节次逐段映射。
  * ────────────────────────────────────────────────────────────────
@@ -26,8 +27,8 @@ import type { RowMetrics, TimeAxis } from './layout';
 
 /** 'HH:mm' → 当天第几分钟 */
 function toMinutes(time: string): number {
-  const [hours, minutes] = time.split(':').map(Number);
-  return (hours ?? 0) * 60 + (minutes ?? 0);
+  const { hour, minute } = parseClock(time);
+  return hour * 60 + minute;
 }
 
 interface Anchor {

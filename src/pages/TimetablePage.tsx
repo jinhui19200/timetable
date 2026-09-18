@@ -17,7 +17,7 @@ import { useStore } from '../store/useStore';
  */
 export function TimetablePage() {
   const { data } = useStore();
-  const { week, setWeek } = useCurrentWeek(data.semester);
+  const { week, setWeek, goToPreviousWeek, goToNextWeek } = useCurrentWeek(data.semester);
   const editor = useEntryEditor();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -52,6 +52,8 @@ export function TimetablePage() {
         currentWeek={week}
         onSelectEntry={editor.openDetail}
         onSelectSlot={(weekday, startPeriod) => editor.openCreate({ weekday, startPeriod })}
+        onPreviousWeek={goToPreviousWeek}
+        onNextWeek={goToNextWeek}
       />
 
       <EntrySheets editor={editor} />

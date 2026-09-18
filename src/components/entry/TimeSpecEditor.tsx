@@ -1,3 +1,4 @@
+import { TimeField } from '../common/TimeField';
 import { PeriodRangePicker } from './PeriodRangePicker';
 import type { PeriodSlot, TimeSpec } from '../../types/entry';
 
@@ -72,20 +73,18 @@ export function TimeSpecEditor({
         />
       ) : (
         <div className="week-range-row">
-          <input
-            type="time"
-            className="form-input"
+          <TimeField
             value={value.start}
-            onChange={(event) => onChange({ ...value, start: event.target.value })}
-            aria-label="开始时间"
+            onChange={(start) => onChange({ ...value, start })}
+            ariaLabel="开始时间"
           />
-          <span style={{ color: 'var(--text-secondary)' }}>–</span>
-          <input
-            type="time"
-            className="form-input"
+          <span className="week-range-row__dash" aria-hidden="true">
+            –
+          </span>
+          <TimeField
             value={value.end}
-            onChange={(event) => onChange({ ...value, end: event.target.value })}
-            aria-label="结束时间"
+            onChange={(end) => onChange({ ...value, end })}
+            ariaLabel="结束时间"
           />
         </div>
       )}

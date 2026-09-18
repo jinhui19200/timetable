@@ -17,7 +17,8 @@ body {
     'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
   color: var(--text-primary);
-  background: var(--bg-page);
+  /* 外壳之外的那圈留白用略深的底色，宽屏上才看得出手机的边界 */
+  background: var(--bg-outside);
   -webkit-font-smoothing: antialiased;
   /* 移动端：禁止整页橡皮筋回弹，避免和网格的横向滚动打架 */
   overscroll-behavior: none;
@@ -43,7 +44,23 @@ button {
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
+  /*
+   * 宽屏（桌面浏览器、平板横屏）上不拉伸，按手机比例居中显示，两侧留白。
+   * 拉满全宽会让七列铺得很开、行高显得很矮，失去手机上那种「一屏看完整周」的比例感。
+   */
+  width: 100%;
+  max-width: var(--app-max-width);
+  margin: 0 auto;
   background: var(--bg-page);
+}
+
+/* 只有真的比手机宽时才需要边框 —— 手机屏幕上外壳本来就占满，画边框反而多余 */
+@media (min-width: 480px) {
+  .app-shell {
+    border-left: 1px solid var(--border-strong);
+    border-right: 1px solid var(--border-strong);
+    box-shadow: 0 0 28px rgb(0 0 0 / 6%);
+  }
 }
 
 .app-shell__content {
@@ -283,6 +300,30 @@ button {
   /* 吃掉左侧节次列之外的剩余宽度，再交给七列平分 */
   flex: 1 1 auto;
   min-width: 0;
+  /*
+   * 换周时 React 会用 key 把这一块重挂一次，动画因此重新播放，
+   * 给「翻到另一周了」一个反馈 —— 不管是从顶部箭头翻还是横划翻，反馈都一致。
+   *
+   * 只动 opacity，**不要加 translate**：transform 会撑大外层滚动容器的
+   * scrollWidth，动画期间就凭空多出几十像素的横向可滚动量。
+   */
+  animation: week-enter 180ms ease-out;
+}
+
+@keyframes week-enter {
+  from {
+    opacity: 0.35;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-days {
+    animation: none;
+  }
 }
 
 .day-column {
@@ -661,7 +702,6 @@ button {
 }
 
 .form-input,
-.form-select,
 .form-textarea {
   width: 100%;
   padding: 9px 10px;
@@ -671,6 +711,19 @@ button {
   color: var(--text-primary);
   font-size: 15px;
   font-family: inherit;
+}
+
+/* 数字输入框（学分）保留原生，但去掉桌面端的上下箭头 ——
+   箭头只在桌面出现，会让两端观感不一致；手机上本来就靠数字键盘输入。 */
+.form-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.form-input[type='number']::-webkit-outer-spin-button,
+.form-input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .form-textarea {
@@ -705,17 +758,150 @@ button {
   color: var(--accent);
 }
 
-/* 周次区间的一行：起止周 + 单双 + 删除 */
+/* 周次 / 节次区间的一行：起止值 + 短横 +（单双周 / 删除）。
+   align-items 用 flex-start 而不是 center：自绘选择器展开时行会变高，
+   center 会让短横和删除按钮浮到中间去。 */
 .week-range-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   margin-bottom: 8px;
 }
 
-.week-range-row .form-select {
+/* 参与平分的控件（选择器 / 时间控件），短横和删除按钮不参与 */
+.week-range-row__field,
+.week-range-row .time-field {
   flex: 1;
   min-width: 0;
+}
+
+/* 短横撑到和控件一样高，视觉上落在控件的中线上 */
+.week-range-row__dash {
+  flex: none;
+  height: var(--control-h);
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+/* ── 自绘选择器 ─────────────────────────────────────────── */
+
+/*
+ * 全部选择类输入都用它，不用原生 <select>：
+ * 手机浏览器会把 <select> 渲染成系统原生的全屏列表（iOS 16+ 对长列表就是这样），
+ * 和电脑端的下拉框完全是两种东西。自绘之后两端一致，也不再依赖平台。
+ */
+.select-field {
+  position: relative;
+  min-width: 0;
+}
+
+.select-field__control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  font-size: 15px;
+  text-align: left;
+}
+
+.select-field__control--open {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.select-field__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 箭头是把右尖括号转 90° 得到的，省一个图标 */
+.select-field__arrow {
+  flex: none;
+  display: flex;
+  color: var(--text-tertiary);
+  transform: rotate(90deg);
+  transition: transform 120ms ease;
+}
+
+.select-field__control--open .select-field__arrow {
+  transform: rotate(-90deg);
+}
+
+/*
+ * 展开的选项面板排在**文档流里**，不是浮层 ——
+ * 浮层会被外层抽屉的 overflow 裁掉，或者在窄屏上溢出。
+ * 代价是展开时把后面的内容顶下去，对表单来说可以接受。
+ */
+.select-field__panel {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 6px;
+  max-height: 208px;
+  overflow-y: auto;
+  /* 面板内部滚到头之后不要把滚动传给外层抽屉 */
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-page);
+}
+
+.select-field__option {
+  padding: 7px 4px;
+  border-radius: 5px;
+  background: var(--bg-surface);
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.select-field__option--active {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* ── 时间 / 日期组合控件 ─────────────────────────────────── */
+
+.time-field,
+.date-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.time-field__part,
+.date-field__part {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 年份要放下四位数字，多分一点宽度 */
+.date-field__part:first-child {
+  flex: 1.3;
+}
+
+.time-field__colon {
+  flex: none;
+  height: var(--control-h);
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 15px;
 }
 
 .week-range-row__remove {
@@ -808,40 +994,49 @@ button {
 }
 
 /* 节次表的一行：节号 + 起止时间 + 删除 */
+/* 节次表的一行：第一行放节号与删除，第二行放起止时间。
+   不挤成一行四列 —— 那样每个时间控件只剩 50px 左右，
+   自绘选择器展开后每格放不下两位数字。 */
 .period-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 6px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.period-row__label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.period-row--head {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
-}
-
-.period-row--head span {
-  flex: 1;
-}
-
-.period-row--head span:last-child {
-  flex: none;
-  width: 32px;
-}
-
-.period-row .form-input {
-  flex: 1;
+  gap: 8px;
   min-width: 0;
+}
+
+.period-row__label-text {
+  flex: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.period-row__label .form-input {
+  flex: none;
+  width: 68px;
   padding: 7px 8px;
   font-size: 13px;
+  text-align: center;
 }
 
-/* 节号那一格不需要那么宽 */
-.period-row .form-input:first-child {
-  flex: none;
-  width: 44px;
-  text-align: center;
+.period-row__times {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.period-row__times .time-field {
+  flex: 1;
+  min-width: 0;
 }
 
 .period-row__remove {

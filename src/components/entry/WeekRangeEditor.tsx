@@ -1,3 +1,5 @@
+import { SelectField } from '../common/SelectField';
+import type { SelectOption } from '../common/SelectField';
 import { CloseIcon } from '../common/Icon';
 import type { WeekParity, WeekRange, WeekRule } from '../../types/entry';
 
@@ -7,7 +9,7 @@ interface WeekRangeEditorProps {
   onChange: (rule: WeekRule) => void;
 }
 
-const PARITY_OPTIONS: { value: WeekParity; label: string }[] = [
+const PARITY_OPTIONS: SelectOption<WeekParity>[] = [
   { value: 'all', label: '每周' },
   { value: 'odd', label: '单周' },
   { value: 'even', label: '双周' },
@@ -22,10 +24,14 @@ const PARITY_OPTIONS: { value: WeekParity; label: string }[] = [
  * 这正是数据模型存「规则」而不是「展开数组」的价值所在 ——
  * 用户看到的就是自己当初填的内容，点编辑再保存不会把课改错。
  *
- * 用下拉而不是数字输入框，是为了在手机上避免调起键盘，也杜绝越界输入。
+ * 周次用选择器而不是数字输入框：一是手机上不调键盘，二是从根上杜绝越界输入。
+ * 列数按各字段的实际宽度挑 —— 一行里挤了三个控件，每格只剩 90px 上下。
  */
 export function WeekRangeEditor({ value, totalWeeks, onChange }: WeekRangeEditorProps) {
-  const weekOptions = Array.from({ length: totalWeeks }, (_, index) => index + 1);
+  const weekOptions: SelectOption<number>[] = Array.from({ length: totalWeeks }, (_, index) => ({
+    value: index + 1,
+    label: String(index + 1),
+  }));
 
   const updateRange = (index: number, patch: Partial<WeekRange>) => {
     onChange({
@@ -48,43 +54,33 @@ export function WeekRangeEditor({ value, totalWeeks, onChange }: WeekRangeEditor
       {value.ranges.map((range, index) => (
         // 行是按位置增删的，用下标当 key 在这里是安全的
         <div key={index} className="week-range-row">
-          <select
-            className="form-select"
+          <SelectField
             value={range.start}
-            onChange={(event) => updateRange(index, { start: Number(event.target.value) })}
-            aria-label="起始周"
-          >
-            {weekOptions.map((week) => (
-              <option key={week} value={week}>
-                {week}
-              </option>
-            ))}
-          </select>
-          <span style={{ color: 'var(--text-secondary)' }}>–</span>
-          <select
-            className="form-select"
+            options={weekOptions}
+            onChange={(next) => updateRange(index, { start: next })}
+            ariaLabel="起始周"
+            columns={2}
+            className="week-range-row__field"
+          />
+          <span className="week-range-row__dash" aria-hidden="true">
+            –
+          </span>
+          <SelectField
             value={range.end}
-            onChange={(event) => updateRange(index, { end: Number(event.target.value) })}
-            aria-label="结束周"
-          >
-            {weekOptions.map((week) => (
-              <option key={week} value={week}>
-                {week}
-              </option>
-            ))}
-          </select>
-          <select
-            className="form-select"
+            options={weekOptions}
+            onChange={(next) => updateRange(index, { end: next })}
+            ariaLabel="结束周"
+            columns={2}
+            className="week-range-row__field"
+          />
+          <SelectField
             value={range.parity}
-            onChange={(event) => updateRange(index, { parity: event.target.value as WeekParity })}
-            aria-label="单双周"
-          >
-            {PARITY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            options={PARITY_OPTIONS}
+            onChange={(next) => updateRange(index, { parity: next })}
+            ariaLabel="单双周"
+            columns={2}
+            className="week-range-row__field"
+          />
           {value.ranges.length > 1 ? (
             <button
               type="button"

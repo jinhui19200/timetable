@@ -6,11 +6,19 @@ import { createEmptyAppData } from '../../store/seed';
 import { useStore } from '../../store/useStore';
 import type { AppData } from '../../types/entry';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { DateField } from '../common/DateField';
+import { SelectField } from '../common/SelectField';
+import type { SelectOption } from '../common/SelectField';
 import { PeriodTableEditor } from './PeriodTableEditor';
 
 /** 学期总周数的合法范围。太小的值没有意义，太大只会让周次切换器变得难用。 */
 const MIN_WEEKS = 1;
 const MAX_WEEKS = 30;
+
+const WEEK_COUNT_OPTIONS: SelectOption<number>[] = Array.from(
+  { length: MAX_WEEKS - MIN_WEEKS + 1 },
+  (_, index) => ({ value: MIN_WEEKS + index, label: String(MIN_WEEKS + index) }),
+);
 
 /** 轻量结构校验：只确认顶层形状，用来挡住选错文件的情况。 */
 function isAppData(value: unknown): value is AppData {
@@ -88,37 +96,28 @@ export function SettingsSheet() {
 
       <section className="settings-group">
         <h3 className="settings-group__title">学期</h3>
-        <label className="form-field">
+        <div className="form-field">
           <span className="form-field__label">第 1 周的周一</span>
-          <input
-            type="date"
-            className="form-input"
+          <DateField
             value={data.semester.startDate}
-            onChange={(event) =>
-              dispatch(appActions.setSemester({ ...data.semester, startDate: event.target.value }))
+            onChange={(startDate) =>
+              dispatch(appActions.setSemester({ ...data.semester, startDate }))
             }
+            ariaLabel="第 1 周的周一"
           />
-        </label>
-        <label className="form-field">
+        </div>
+        <div className="form-field">
           <span className="form-field__label">总周数</span>
-          <input
-            type="number"
-            className="form-input"
-            min={MIN_WEEKS}
-            max={MAX_WEEKS}
+          <SelectField
             value={data.semester.totalWeeks}
-            onChange={(event) => {
-              const value = Math.round(Number(event.target.value));
-              if (!Number.isFinite(value)) return;
-              dispatch(
-                appActions.setSemester({
-                  ...data.semester,
-                  totalWeeks: Math.min(Math.max(value, MIN_WEEKS), MAX_WEEKS),
-                }),
-              );
-            }}
+            options={WEEK_COUNT_OPTIONS}
+            onChange={(totalWeeks) =>
+              dispatch(appActions.setSemester({ ...data.semester, totalWeeks }))
+            }
+            ariaLabel="总周数"
+            columns={5}
           />
-        </label>
+        </div>
       </section>
 
       <section className="settings-group">

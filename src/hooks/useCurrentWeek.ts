@@ -11,6 +11,8 @@ import type { SemesterConfig } from '../types/entry';
 export function useCurrentWeek(semester: SemesterConfig): {
   week: number;
   setWeek: (week: number) => void;
+  goToPreviousWeek: () => void;
+  goToNextWeek: () => void;
 } {
   const [week, setRawWeek] = useState(() => getWeekOfDate(semester, new Date()));
 
@@ -19,5 +21,12 @@ export function useCurrentWeek(semester: SemesterConfig): {
     [semester.totalWeeks],
   );
 
-  return { week: clamp(week), setWeek: (value: number) => setRawWeek(clamp(value)) };
+  const setWeek = useCallback((value: number) => setRawWeek(clamp(value)), [clamp]);
+
+  // 用函数式更新：横划连滑两下时，两次都要基于「上一次的结果」再加减，
+  // 直接读闭包里的 week 会因为还没重渲染而两次都从同一个值出发。
+  const goToPreviousWeek = useCallback(() => setRawWeek((prev) => clamp(prev - 1)), [clamp]);
+  const goToNextWeek = useCallback(() => setRawWeek((prev) => clamp(prev + 1)), [clamp]);
+
+  return { week: clamp(week), setWeek, goToPreviousWeek, goToNextWeek };
 }

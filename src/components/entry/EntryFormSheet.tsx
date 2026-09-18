@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { SelectField } from '../common/SelectField';
+import type { SelectOption } from '../common/SelectField';
 import { pickColorByTitle } from '../../domain/colors';
 import { WEEKDAYS, weekdayLabel } from '../../domain/date';
 import { buildRowMetrics, findConflicts } from '../../domain/layout';
@@ -13,6 +15,16 @@ import { TimeSpecEditor } from './TimeSpecEditor';
 import { WeekRangeEditor } from './WeekRangeEditor';
 
 const COURSE_TYPES: CourseType[] = ['必修', '选修', '限选', '实践'];
+
+const COURSE_TYPE_OPTIONS: SelectOption<CourseType>[] = COURSE_TYPES.map((type) => ({
+  value: type,
+  label: type,
+}));
+
+const WEEKDAY_OPTIONS: SelectOption<Weekday>[] = WEEKDAYS.map((weekday) => ({
+  value: weekday,
+  label: weekdayLabel(weekday),
+}));
 
 /** 冲突检测时给「还没保存的草稿」用的占位 id，不会和任何真实记录撞上。 */
 const DRAFT_PROBE_ID = '__draft__';
@@ -146,20 +158,16 @@ export function EntryFormSheet({
         onChange={(time) => patch({ time })}
       />
 
-      <label className="form-field">
+      <div className="form-field">
         <span className="form-field__label">星期</span>
-        <select
-          className="form-select"
+        <SelectField
           value={draft.weekday}
-          onChange={(event) => patch({ weekday: Number(event.target.value) as Weekday })}
-        >
-          {WEEKDAYS.map((weekday) => (
-            <option key={weekday} value={weekday}>
-              {weekdayLabel(weekday)}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={WEEKDAY_OPTIONS}
+          onChange={(weekday) => patch({ weekday })}
+          ariaLabel="星期"
+          columns={4}
+        />
+      </div>
 
       <div className="form-field">
         <span className="form-field__label">周次</span>
@@ -193,20 +201,16 @@ export function EntryFormSheet({
             />
           </label>
 
-          <label className="form-field">
+          <div className="form-field">
             <span className="form-field__label">课程类型</span>
-            <select
-              className="form-select"
+            <SelectField
               value={draft.courseType}
-              onChange={(event) => patch({ courseType: event.target.value as CourseType })}
-            >
-              {COURSE_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={COURSE_TYPE_OPTIONS}
+              onChange={(courseType) => patch({ courseType })}
+              ariaLabel="课程类型"
+              columns={4}
+            />
+          </div>
 
           <label className="form-field">
             <span className="form-field__label">学分</span>
