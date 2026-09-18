@@ -1,0 +1,40 @@
+/**
+ * 设计令牌。
+ *
+ * 尺寸类变量（--period-h / --day-w 等）由 JS 在网格容器上注入，
+ * 取值来自 domain/layout.ts 的常量 —— 这样 JS 算坐标和 CSS 排尺寸用的是同一套数字。
+ * 这里只给一份兜底默认值，防止组件单独使用时报 undefined。
+ */
+
+:root {
+  --period-h: 56px;
+  --group-gap: 24px;
+  --day-w: 100px;
+  --time-col-w: 48px;
+  --header-h: 52px;
+
+  --bg-page: #f6f6f7;
+  --bg-surface: #ffffff;
+  --bg-subtle: #fbfbfb;
+
+  --border: #ededed;
+  --border-strong: #dcdcdc;
+
+  --text-primary: #1f1f1f;
+  --text-secondary: #8c8c8c;
+  --text-tertiary: #b5b5b5;
+
+  /* 参考截图里「编辑」按钮用的暖橙色 */
+  --accent: #e9a23b;
+  --accent-soft: #fdf4e6;
+  --danger: #d9534f;
+  --danger-soft: #fdeceb;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* iPhone 刘海 / 底部横条的安全区 */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
