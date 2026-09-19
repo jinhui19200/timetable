@@ -31,8 +31,15 @@ const DRAFT_PROBE_ID = '__draft__';
 interface EntryFormSheetProps {
   /** 编辑时传入已有记录；不传表示新建 */
   initial?: Entry;
-  /** 新建时的预填（从空白格子点进来会带上星期与起始节次） */
-  preset?: Omit<DraftPreset, 'totalWeeks'>;
+  /**
+   * 新建时的预填（从空白格子点进来会带上星期与起始节次）。
+   *
+   * 排除 currentWeek：它由下面的独立 prop 传入。上一次改动把 currentWeek 从 preset
+   * 里提出来当独立 prop 时漏改了这里的类型，于是 preset 仍然要求调用方提供它 ——
+   * 而调用方已经不提供了。这个类型错误被 tsc 的增量缓存盖了过去（`tsc -b` 有
+   * 现成 .tsbuildinfo 时会跳过检查），删掉缓存做一次全量构建才会暴露出来。
+   */
+  preset?: Omit<DraftPreset, 'totalWeeks' | 'currentWeek'>;
   periods: PeriodSlot[];
   semester: SemesterConfig;
   /** 「仅当前周」要落到的那一周。新建时用它做周次默认值 */

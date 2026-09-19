@@ -1181,3 +1181,208 @@ button {
   padding: 11px 0;
   margin-top: 4px;
 }
+
+/* ── 账户区块（主页顶部） ───────────────────────────────── */
+
+/*
+ * 账户卡片浮在页面底色上（白底 + 圆角），而不是像 .home-section 那样直接铺开。
+ * 这样它和下面的「今日安排」在视觉上是两块东西：账户是设置性质的，
+ * 今日安排才是内容。用同一层底色的话，账户名看起来像今天的第一条课。
+ */
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+}
+
+.account-card__avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.account-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-card__name {
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-card__status {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 未同步用暖色而不是红色：它是「需要你知道、但不必惊慌」的状态，
+   本地数据完好、还能继续编辑，用红色会和「删除」这种真正的危险操作混在一起。 */
+.account-card--offline .account-card__status {
+  color: var(--accent);
+}
+
+.account-card__switch {
+  flex: none;
+}
+
+/* ── 切换账户弹窗 ───────────────────────────────────────── */
+
+/* 比确认弹窗宽一点、并且左对齐：里面有列表和输入框，居中的 300px 放不下 */
+.dialog--account {
+  max-width: 320px;
+  padding: 16px 16px 14px;
+  text-align: left;
+}
+
+.account-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.account-dialog__title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.account-dialog__close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+}
+
+.account-dialog__close:active {
+  background: var(--bg-page);
+}
+
+.account-dialog__label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/*
+ * 列表限高 40vh：账户多了也不至于把弹窗撑出屏幕，让下面的「新建」表单
+ * 跑到屏幕外够不到 —— 那正是用户最需要的一个控件。
+ */
+.account-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.account-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.account-list__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.account-list__item:active {
+  background: var(--bg-page);
+}
+
+.account-list__item--current {
+  background: var(--accent-soft);
+}
+
+.account-list__avatar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-page);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.account-list__item--current .account-list__avatar {
+  background: #fff;
+  color: var(--accent);
+}
+
+.account-list__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-list__meta {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.account-list__item--current .account-list__meta {
+  color: var(--accent);
+}
+
+.account-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-dialog__hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.account-dialog__hint--warn {
+  color: var(--accent);
+}
+
+.dialog__button--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.dialog__button:disabled {
+  opacity: 0.45;
+}

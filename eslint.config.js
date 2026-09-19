@@ -50,4 +50,16 @@ export default tseslint.config(
       globals: globals.node,
     },
   },
+
+  // Cloudflare Pages Functions 跑在 Workers 运行时里 —— 既不是浏览器也不是 Node。
+  // 不单独声明 globals 的话，Response / URL / fetch 会被 no-undef 全报成未定义变量，
+  // 而它们在这个环境里本来就是全局的。
+  {
+    files: ['functions/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.worker, ...globals.es2022 },
+    },
+  },
 );

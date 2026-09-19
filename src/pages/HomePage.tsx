@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AccountCard } from '../components/account/AccountCard';
 import { BottomSheet } from '../components/common/BottomSheet';
 import { GearIcon } from '../components/common/Icon';
 import { SettingsSheet } from '../components/config/SettingsSheet';
@@ -62,6 +63,8 @@ export function HomePage() {
       </div>
 
       <div className="page-scroll">
+        <AccountCard />
+
         <section className="home-section">
           <h2 className="home-section__title">
             今日安排

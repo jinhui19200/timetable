@@ -14,3 +14,7 @@ dist-ssr
 
 # TypeScript 增量构建缓存
 *.tsbuildinfo
+
+# wrangler 的本地状态：本地 D1 的 sqlite、缓存、日志。
+# 里面是「我这台机器上调试用的数据」，不该进仓库 —— 而且体积会长。
+.wrangler

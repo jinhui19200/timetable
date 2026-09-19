@@ -43,7 +43,7 @@ function isAppData(value: unknown): value is AppData {
  * 那条约定约束的是**单条记录**的增删改，整体替换是另一回事。
  */
 export function SettingsSheet() {
-  const { data, dispatch } = useStore();
+  const { data, dispatch, account } = useStore();
   const [confirmClear, setConfirmClear] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,7 +82,7 @@ export function SettingsSheet() {
   };
 
   const handleClear = () => {
-    clearStoredData();
+    clearStoredData(account.name);
     dispatch(appActions.replaceData(createEmptyAppData()));
     setConfirmClear(false);
     setNotice('已清空。课程全部移除，节次表和学期恢复为默认值');
@@ -131,8 +131,8 @@ export function SettingsSheet() {
       <section className="settings-group">
         <h3 className="settings-group__title">数据</h3>
         <p className="form-field__hint">
-          数据只存在这台设备的浏览器里。清缓存、换设备、用无痕模式都可能让它消失，
-          建议定期导出一份留底。
+          当前账户是「{account.name}」。数据同时存在这台设备和云端：清缓存不会丢，
+          换台设备输入同一个账户名就能读回来。下面的清空和导入都只影响这个账户。
         </p>
 
         <div className="settings-actions">
@@ -170,7 +170,7 @@ export function SettingsSheet() {
       <ConfirmDialog
         open={confirmClear}
         title="清空所有数据？"
-        message="所有课程和事件都会被删除，节次表与学期恢复默认。此操作不可撤销 —— 建议先导出一份留底。"
+        message="当前账户的所有课程和事件都会被删除，节次表与学期恢复默认。云端那份也会被覆盖，此操作不可撤销 —— 建议先导出一份留底。"
         confirmLabel="清空"
         danger
         onConfirm={handleClear}

@@ -1,0 +1,23 @@
+{
+  // Cloudflare Pages 项目配置。
+  //
+  // ⚠️ 这个文件一旦存在，它就成了 Pages 项目配置的唯一真实来源 ——
+  //    同名字段（绑定、环境变量）之后**不能**再在 Dashboard 里改，
+  //    改了也不生效。以后加绑定请改这里，不要在网页上点。
+  //
+  // 之所以需要它：D1 绑定必须有个声明的地方。用 wrangler 直传 dist 时，
+  // 如果命令行所在目录里没有这个文件，Pages 就不知道 ACCOUNTS_DB 指向哪个库，
+  // 线上 /api/account 会直接 500。
+  "name": "timetable",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-09-19",
+
+  "d1_databases": [
+    {
+      // Functions 代码里通过 env.ACCOUNTS_DB 访问，改名字要同步改 functions/
+      "binding": "ACCOUNTS_DB",
+      "database_name": "timetable-accounts",
+      "database_id": "4e1b432a-b08e-476a-b6fb-b1ac0f67771f"
+    }
+  ]
+}
