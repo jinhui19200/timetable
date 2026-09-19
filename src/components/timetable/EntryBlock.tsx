@@ -14,9 +14,13 @@ interface EntryBlockProps {
  *
  * 位置完全由 layout.ts 算好后以像素传入，这里只负责画。
  * 横向分道用百分比计算，这样换列宽不用改代码。
+ *
+ * floating 的块是落在被压缩课间空档里的钟点事件 —— 它没有属于自己的像素，
+ * 必然叠在相邻节次的行内，所以换一套「浮标」样式（虚线描边 + 单行小字），
+ * 免得被误认成一节正常的课。样式见 global.css 的 .entry-block--floating。
  */
 export function EntryBlock({ positioned, onSelect }: EntryBlockProps) {
-  const { entry, top, height, lane, laneCount, collapsed } = positioned;
+  const { entry, top, height, lane, laneCount, collapsed, floating } = positioned;
   const color = resolveEntryColor(entry);
 
   const style: CSSProperties = {
@@ -38,7 +42,7 @@ export function EntryBlock({ positioned, onSelect }: EntryBlockProps) {
       type="button"
       className={`entry-block${collapsed ? ' entry-block--collapsed' : ''}${
         isNarrow ? ' entry-block--narrow' : ''
-      }`}
+      }${floating ? ' entry-block--floating' : ''}`}
       style={style}
       onClick={() => onSelect(entry)}
       aria-label={label}

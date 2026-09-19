@@ -34,6 +34,7 @@ npm run dev
 - **两种时间表达**：
   - 课程固定按**节次**（第 3~4 节），不显示具体钟点。
   - 事件可以按节次，也可以按**真实钟点**（如 19:00~20:30），按真实时间比例落在网格上。
+- **课间空档里的事件**：节次之间真实存在的课间（第 2 节 09:55 结束、第 3 节 10:15 开始）在固定行高下被压成 0 像素，落在里面的钟点事件（如 09:58~10:05）没有属于自己的位置。这类事件以**虚线浮标**的形式骑在空档边界上，并且**不占用普通课程的道** —— 否则一个 7 分钟的课间事件会把两侧正常课程挤成半宽。
 - **表单全部用自绘控件**：选择器、时间、日期都是应用内自己画的，不用原生 `<select>` / `<input type="time">` / `<input type="date">`。原因是手机浏览器会把它们弹成系统原生界面（iOS 上是全屏列表和表盘），和电脑端完全是两种东西；而且原生 time 控件在窄格里会被截成「15:0」。自绘之后两端表现一致，输入值也一定是合法的。
 - **修改功能**（本项目的重点）：点任意课程/事件 → 底部抽屉显示详情 → 点「编辑」改任意字段。也可以点空白格子直接新建，会自动预填那一格的星期与节次。
 - **冲突提醒**：保存时若与已有安排重叠，会提示是哪几条，但**不阻止保存**。单双周错开的情况不算冲突。
@@ -93,6 +94,7 @@ app/
 - **时间一律存 `'HH:mm'` 字符串**，不存 Date 对象，避免时区与夏令时偏移。解析/格式化统一走 `domain/clock.ts`，不要在各处自己 `split(':')`。
 - **网格列宽不写死。** 列宽由 CSS 用 flex 平分容器宽度（上下限见 `layout.ts` 的 `MIN_DAY_WIDTH` / `MAX_DAY_WIDTH`），目标是让周一~周日**一屏铺满、不用横向滑动**。`layoutDay` 只算纵向坐标和道号，完全不碰像素宽度 —— 所以调列宽不需要动任何布局计算，这也是当初把分道结果设计成 `lane` / `laneCount` 而不是像素的原因。
 - **不要给横划的判定区域加 transform 动画。** 换周时 `.grid-days` 会重挂并播一段动画，**只动 opacity**。任何 `translate` 都会撑大外层滚动容器的 `scrollWidth`（实测 390 → 399），而横划的守卫正是靠它判断「能不能横向滚动」—— 结果是动画那 180ms 内横划被吞掉，表现为连划几下总有一两下不生效。守卫本身也已改成用常量算宽度，不读 `scrollWidth`。
+- **课间空档里的钟点事件必须和普通块分开分道。** 这类块的高度是 `MIN_CLOCK_HEIGHT` 补出来的（它所在的空档在网格上占 0 像素），而它在**真实时间上和相邻课程并不重叠**。一旦让它和普通块一起分道，它会和两侧课程判定成像素重叠，把正常的课挤成半宽；同一天再有别的重叠时，第三个块还会被 `MAX_LANES` 挤到 `collapsed` 塌成一条 `+` 色条，整条记录直接读不出来。所以 `layoutDay` 把它们分成两批分别调 `assignLanes`，浮块另外用 `centerOnBoundary` 以空档边界为中心摆放，让上下两节各只被压半行。`BlockGeometry.floating` / `PositionedEntry.floating` 就是这个标记。
 
 ## 开发约定
 
@@ -102,8 +104,21 @@ app/
 
 ## 部署
 
-计划部署到 Cloudflare Pages。构建配置：
+已上线：**https://timetable-e6l.pages.dev**（Cloudflare Pages，项目名 `timetable`，生产分支 `main`）。
+
+当前用 wrangler **手动直传 `dist`，不是 Git 集成** —— `git push` 不会自动上线，改完要重跑：
+
+```bash
+npm run build
+env -u NODE_OPTIONS npx --yes wrangler@latest pages deploy dist --project-name=timetable --branch=main --commit-dirty=true
+```
+
+若改用 Dashboard 的 Git 集成（Settings → Builds & deployments 连上仓库即可 push 自动部署），构建配置填：
 
 - 构建命令：`npm run build`
 - 输出目录：`dist`
-- 环境变量：`NODE_VERSION` **必须显式设置**（如 `22`）。Cloudflare 的默认 Node 版本变更过几次，不设置会遇到 "Node version not supported"。
+- Node 版本：`.nvmrc` 已声明 `22`。Vite 8 要求 Node 20.19+ / 22.12+，Cloudflare 的默认版本变更过几次，不显式指定会遇到 "Node version not supported"。
+
+⚠️ **`npx` 必须带 `--yes`**：不带的话它会停在 `Ok to proceed? (y)` 等输入，而自动化环境里 stdin 不是终端，表现为「命令永久挂住且没有任何输出」，很容易误判成网络问题。
+
+本应用**没有 URL 路由**（纯 React state 切标签），所以不需要 SPA 回退规则（`_redirects`），静态托管直接可用。将来若引入 history 模式路由，必须补上。

@@ -417,6 +417,39 @@ button {
   opacity: 0.8;
 }
 
+/*
+ * 落在被压缩课间空档里的钟点事件（见 layout.ts 的 BlockGeometry.floating）。
+ *
+ * 这类块没有属于自己的像素 —— 空档在固定行高下是 0 像素高，所以它必然叠在
+ * 相邻节次的行内。三件事让它读起来像「浮标」而不是一节正常的课：
+ * 虚线描边、单行小字、抬高层级压在课程块上面。
+ *
+ * 它已经不参与普通块的分道了（见 layoutDay），所以两侧课程仍是全宽 ——
+ * 那才是这次改动的重点。这里只负责让这个必然重叠的块看起来是有意为之。
+ */
+.entry-block--floating {
+  z-index: 3;
+  justify-content: center;
+  padding: 2px 5px;
+  border: 1px dashed currentColor;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+}
+
+.entry-block--floating .entry-block__title {
+  display: block;
+  -webkit-line-clamp: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  word-break: normal;
+}
+
+/* 块只有 20px 高，放不下第二行；地点在详情抽屉里看 */
+.entry-block--floating .entry-block__meta {
+  display: none;
+}
+
 /* ── 底部抽屉 ───────────────────────────────────────────── */
 
 .sheet-backdrop {
