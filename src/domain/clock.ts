@@ -36,6 +36,18 @@ export function formatClock(hour: number, minute: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+/**
+ * 'HH:mm' → 当天第几分钟。
+ *
+ * 用于**按真实时间**比较两段安排是否重叠（见 layout.ts 的 findConflicts）。
+ * 这件事不能用像素坐标做 —— 网格行高固定，课间空档会被压成 0 像素，
+ * 像素重叠和真实时间重叠并不是一回事。
+ */
+export function toMinutes(time: string): number {
+  const { hour, minute } = parseClock(time);
+  return hour * 60 + minute;
+}
+
 /** 'HH:mm' 加若干分钟。超过当天末尾就截断到 23:59，不跨天。 */
 export function addMinutes(time: string, minutes: number): string {
   const { hour, minute } = parseClock(time);

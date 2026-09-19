@@ -4,8 +4,7 @@ import { SelectField } from '../common/SelectField';
 import type { SelectOption } from '../common/SelectField';
 import { pickColorByTitle } from '../../domain/colors';
 import { WEEKDAYS, weekdayLabel } from '../../domain/date';
-import { buildRowMetrics, findConflicts } from '../../domain/layout';
-import { createTimeAxis } from '../../domain/timeAxis';
+import { findConflicts } from '../../domain/layout';
 import { normalizeWeekRule } from '../../domain/weeks';
 import type { CourseType, Entry, PeriodSlot, SemesterConfig, Weekday } from '../../types/entry';
 import { ColorPicker } from './ColorPicker';
@@ -68,9 +67,6 @@ export function EntryFormSheet({
   // 用户是否手动挑过颜色。挑过之后就不再按科目名自动改色，尊重用户的选择。
   const [colorTouched, setColorTouched] = useState(false);
 
-  const metrics = useMemo(() => buildRowMetrics(periods), [periods]);
-  const axis = useMemo(() => createTimeAxis(periods, metrics), [periods, metrics]);
-
   const patch = (changes: Partial<EntryDraft>) => setDraft((prev) => ({ ...prev, ...changes }));
 
   /**
@@ -89,8 +85,8 @@ export function EntryFormSheet({
   );
 
   const conflicts = useMemo(
-    () => findConflicts(probe, existingEntries, semester.totalWeeks, metrics, axis),
-    [probe, existingEntries, semester.totalWeeks, metrics, axis],
+    () => findConflicts(probe, existingEntries, semester.totalWeeks, periods),
+    [probe, existingEntries, semester.totalWeeks, periods],
   );
 
   const canSubmit = draft.title.trim() !== '';

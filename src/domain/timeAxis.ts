@@ -1,4 +1,4 @@
-import { parseClock } from './clock';
+import { toMinutes } from './clock';
 import type { PeriodSlot } from '../types/entry';
 import type { RowMetrics, TimeAxis } from './layout';
 
@@ -24,12 +24,6 @@ import type { RowMetrics, TimeAxis } from './layout';
  * 如果有人把节次表重排成时间乱序，网格本身的视觉顺序也会一起乱掉，
  * 那时这个映射失去意义是符合预期的。
  */
-
-/** 'HH:mm' → 当天第几分钟 */
-function toMinutes(time: string): number {
-  const { hour, minute } = parseClock(time);
-  return hour * 60 + minute;
-}
 
 interface Anchor {
   minutes: number;

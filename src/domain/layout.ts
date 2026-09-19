@@ -1,4 +1,5 @@
 import type { Entry, PeriodGroup, PeriodSlot, Weekday } from '../types/entry';
+import { toMinutes } from './clock';
 import { weekRuleContains, weekRulesOverlap } from './weeks';
 
 /**
@@ -345,31 +346,63 @@ export function filterEntriesForWeek(entries: Entry[], week: number): Entry[] {
 }
 
 /**
+ * 一条记录在**真实时间**上的区间，单位是「当天第几分钟」。
+ *
+ * 节次模式换算成该节次槽位自己的真实起止时刻；节次下标越界（节次表被改短过）
+ * 时返回 null，由调用方跳过 —— 那种记录在网格上也画不出来。
+ */
+function realTimeRange(
+  entry: Entry,
+  periods: PeriodSlot[],
+): { start: number; end: number } | null {
+  const { time } = entry;
+
+  if (time.mode === 'clock') {
+    const start = toMinutes(time.start);
+    const end = toMinutes(time.end);
+    // 起止写反也照常处理，别让它算出一个负区间
+    return { start: Math.min(start, end), end: Math.max(start, end) };
+  }
+
+  const from = periods[Math.min(time.startPeriod, time.endPeriod)];
+  const to = periods[Math.max(time.startPeriod, time.endPeriod)];
+  if (!from || !to) return null;
+  return { start: toMinutes(from.start), end: toMinutes(to.end) };
+}
+
+/**
  * 找出与候选记录冲突的已有记录。
  *
- * 冲突的充要条件是三件事同时成立：同一天、周次有交集、像素区间重叠。
+ * 冲突的充要条件是三件事同时成立：同一天、周次有交集、**真实时间区间重叠**。
  * 「周次有交集」这一条顺带解决了单双周的问题 ——
  * 一门课占单周、另一门占双周，即使时间完全重合也不算冲突。
+ *
+ * ⚠️ 这里**必须按真实时间判重叠，不能按像素区间**。
+ * 网格行高固定，节次之间的课间空档被压成 0 像素，于是「像素上挨着」和
+ * 「时间上重叠」是两回事：09:58~10:05 的事件在像素上会压进第 3 节
+ * （10:15~10:55）的行内，但真实时间和它并不重叠。
+ * 早先按像素判，会给这种事件报一个假警告 —— 而提示文案明确写的是
+ * 「与 N 条已有安排时间重叠」，等于在陈述一件不成立的事。
+ *
+ * 端点相接不算重叠（如 19:40 结束与 19:40 开始），半开区间求交自然满足。
  */
 export function findConflicts(
   candidate: Entry,
   entries: Entry[],
   totalWeeks: number,
-  metrics: RowMetrics,
-  axis?: TimeAxis,
+  periods: PeriodSlot[],
 ): Entry[] {
-  const candidateGeometry = getEntryGeometry(candidate, metrics, axis);
-  if (candidateGeometry.height <= 0) return [];
+  const candidateRange = realTimeRange(candidate, periods);
+  if (!candidateRange) return [];
 
   return entries.filter((entry) => {
     if (entry.id === candidate.id) return false;
     if (entry.weekday !== candidate.weekday) return false;
     if (!weekRulesOverlap(entry.weeks, candidate.weeks, totalWeeks)) return false;
 
-    const geometry = getEntryGeometry(entry, metrics, axis);
-    const overlaps =
-      geometry.top < candidateGeometry.top + candidateGeometry.height &&
-      candidateGeometry.top < geometry.top + geometry.height;
-    return overlaps;
+    const range = realTimeRange(entry, periods);
+    if (!range) return false;
+
+    return range.start < candidateRange.end && candidateRange.start < range.end;
   });
 }
