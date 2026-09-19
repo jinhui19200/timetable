@@ -252,7 +252,15 @@ env -u NODE_OPTIONS npx --yes wrangler@latest pages deploy dist --project-name=t
 
 ### 其它
 
-本应用**没有 URL 路由**（纯 React state 切标签），所以不需要 SPA 回退规则（`_redirects`），静态托管直接可用。加了 Functions 之后 Pages 会自动生成 `_routes.json`，把静态资源排除在 Functions 调用之外（不占用 Functions 的免费额度）。将来若引入 history 模式路由，必须补上 `_redirects`。
+本应用**没有 URL 路由**（纯 React state 切标签），所以不需要 SPA 回退规则（`_redirects`），静态托管直接可用。将来若引入 history 模式路由，必须补上 `_redirects`。
+
+Pages 对未匹配到静态资源的路径会返回 `200 + index.html`（实测：随便编一个 `/_definitely_not_here_12345` 也是 200、`content-type: text/html`），所以**光靠 HTTP 状态码判断不出某个文件到底存不存在** —— 想确认 `_routes.json`（把静态资源排除在 Functions 调用之外、不占 Functions 额度）有没有生成，得看部署详情，不能 `curl`。
+
+加了 Functions 之后，每个请求默认都会走一遍 Functions（没有匹配的才回落到静态资源）。个人自用完全够用；真要省额度就自己往 `dist/` 里放一份 `_routes.json`：
+
+```json
+{ "version": 1, "include": ["/api/*"], "exclude": [] }
+```
 
 ## 验证脚本
 
