@@ -34,7 +34,9 @@ export function EntryBlock({ positioned, onSelect }: EntryBlockProps) {
 
   const label = entry.location ? `${entry.title}，${entry.location}` : entry.title;
 
-  // 被并排挤窄（同一天同一时段有重叠记录）时换成单行省略的排版
+  // 被并排挤窄（同一天同一时段有重叠记录）时换成中文竖排。
+  // 半列宽只有 20px，横排连一个汉字都放不下，只有竖着排才读得出课名。
+  // 分道上限是 MAX_LANES = 2，所以这里最多只会出现两道。
   const isNarrow = laneCount > 1;
 
   return (
