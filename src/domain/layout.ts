@@ -7,7 +7,7 @@ import { weekRuleContains, weekRulesOverlap } from './weeks';
  *
  * ────────────────────────────────────────────────────────────────
  * 核心抽象：不管一个块是按节次还是按真实钟点表达的，都先换算成像素区间 [top, height]，
- * 之后的横向分道（lane）和冲突检测就完全共用一套逻辑，不需要为钟点事件写特例。
+ * 之后的重叠分段和冲突检测就完全共用一套逻辑，不需要为钟点事件写特例。
  * ────────────────────────────────────────────────────────────────
  *
  * 所有尺寸常量定义在这里（而不是 CSS 变量里），再由组件注入成 CSS 变量，
@@ -45,8 +45,16 @@ export const TIME_COLUMN_WIDTH = 48;
 export const HEADER_HEIGHT = 52;
 /** 块与格子边缘的间距（上下各 2px、左右各 2px） */
 export const BLOCK_INSET = 2;
-/** 同一天同一时段最多并排显示几道 */
-export const MAX_LANES = 2;
+
+/**
+ * 分段之间的最小高度差，低于它的分段直接丢弃。
+ *
+ * 边界值来自「块的 top」和「块的 top + height」，两条不同记录算出的同一个时刻
+ * 在浮点下可能差最后几位（实测 0.3 vs 0.30000000000000004），于是会多出一个
+ * 高度约 1e-17 的碎片分段 —— 渲染出来是个看不见的空 DOM 节点。
+ * 半像素以下的段没有任何视觉意义，丢掉不会损失信息。
+ */
+export const MIN_SEGMENT_HEIGHT = 0.5;
 
 /**
  * 钟点事件的最小可见高度。
@@ -203,26 +211,40 @@ export function getEntryGeometry(
   };
 }
 
-/** 已经算好位置的块。 */
+/**
+ * 一个渲染单元：一段像素区间，以及压在这一段上的全部记录。
+ *
+ * ⚠️ 这里不再有「横向第几道」的概念。同一时段有多条记录时，早先是并排错开
+ * （lane），手机上每道只剩 20px，两边都读不出字；现在改成**纵向切段**：
+ * 把这一组记录的所有起止点当成切点，逐段渲染，每一段铺满整列宽度。
+ *
+ * 于是「两条记录在时间上真正重合的那一段」会单独成为一个渲染单元，
+ * 底色取两者的混合色（见 colors.ts 的 blendPaletteColors），文字取两者名称 ——
+ * 重叠发生在哪一段时间、压住了谁，一眼就能看出来。
+ * 两条记录时间完全相同时，切出来只有一段，名称自然合并在一起。
+ */
 export interface PositionedEntry {
-  entry: Entry;
+  /** 覆盖这一段的记录，按 top 升序。长度 1 是普通块，>1 是重叠带。 */
+  entries: Entry[];
   top: number;
   height: number;
-  /** 横向第几道，从 0 开始 */
-  lane: number;
-  /** 该天总共几道（已上限为 MAX_LANES） */
-  laneCount: number;
-  /** 因为同一天同一时段记录太多而被折叠（只显示一条色条，不显示文字） */
-  collapsed: boolean;
   /**
    * 落在被压缩课间空档里、或完全在网格范围外的钟点事件（见 BlockGeometry.floating）。
    *
-   * 这类块单独分道、以空档边界为中心摆放，不占用普通课程的道。
+   * 这类块单独切段、以空档边界为中心摆放，不占用普通记录的位置。
    */
   floating: boolean;
+  /**
+   * React key。
+   *
+   * 不能只用记录 id —— 一条记录被别的记录从中间截断时会出现**多个分段**
+   * （如 A 独占段、A∩B 重叠段、A 独占段），同一个 id 会重复。
+   * 也不能只用 top —— 浮块分段和普通分段可能算出同一个 top。所以两者都带上。
+   */
+  key: string;
 }
 
-/** 量好像素位置、但还没分道的块。 */
+/** 量好像素位置、但还没切段的块。 */
 interface MeasuredBlock {
   entry: Entry;
   top: number;
@@ -242,87 +264,82 @@ function centerOnBoundary(top: number, height: number, totalHeight: number): num
 }
 
 /**
- * 把一批已经量好位置的块分组、分道。
+ * 把一批已经量好位置的块切成互不重叠的段。
  *
- * 分组是必须的，不能让整列共用一个道数：只要某一天里有一处重叠，
- * 整天所有块都会被压成半宽 —— 上午两门课撞了，晚上的课也跟着变窄。
- * 按 top 排序后线性扫描即可：当前块的顶部已经越过组内最大底部，就说明
- * 它和这一组谁都不重叠，可以另起一组。
+ * 做法：把这一组里所有块的「顶」和「底」收集成切点集合，排序后逐个相邻区间求覆盖，
+ * 每一段拿到的就是「在这段时间上同时存在的全部记录」。
  *
- * 分道用贪心：每个块放进第一个「末尾已经结束」的道里，放不下就新开一道。
- * 这和日历应用排重叠日程是同一个思路。
+ * 举例：A 占 [0,100]，B 占 [50,150]
+ *   切点 {0, 50, 100, 150}
+ *   → [0,50]   {A}    A 独占
+ *   → [50,100] {A,B}  重叠段
+ *   → [100,150] {B}   B 独占
+ * 两个块完全重合时切点只有两个，自然只切出一段 {A,B} —— 名称合并就是这么来的。
+ *
+ * 切出的段互斥、且首尾相接，所以每一段都能铺满整列宽度，
+ * 不需要再按「几道」去算百分比宽度。
+ *
+ * ⚠️ 这里刻意不做「整组统一分道」那种做法（本文件旧版就是那样）：
+ * 那样只要某一天里有一处重叠，整天所有块都会被压成半宽 ——
+ * 上午两门课撞了，晚上的课也跟着变窄。切段只影响真正重叠的那几段。
  */
-function assignLanes(
+function segmentBlocks(
   measured: MeasuredBlock[],
   totalHeight: number,
   floating: boolean,
 ): PositionedEntry[] {
-  const positioned: PositionedEntry[] = [];
-  let groupStart = 0;
-  let groupBottom = Number.NEGATIVE_INFINITY;
+  if (measured.length === 0) return [];
 
-  const flushGroup = (endExclusive: number) => {
-    const group = measured.slice(groupStart, endExclusive);
-    if (group.length === 0) return;
+  // 浮块先按「空档边界」居中（见 centerOnBoundary），再切段 ——
+  // 顺序反过来的话，同一条浮块被切出的几段会各自居中，互相错开。
+  const blocks = floating
+    ? measured.map((block) => ({
+        ...block,
+        top: centerOnBoundary(block.top, block.height, totalHeight),
+      }))
+    : measured;
 
-    const laneEnds: number[] = [];
-    const assigned = group.map((item) => {
-      let lane = laneEnds.findIndex((end) => end <= item.top);
-      if (lane === -1) {
-        lane = laneEnds.length;
-        laneEnds.push(item.top + item.height);
-      } else {
-        laneEnds[lane] = item.top + item.height;
-      }
-      return { ...item, lane };
-    });
-
-    const laneCount = Math.min(Math.max(laneEnds.length, 1), MAX_LANES);
-    for (const item of assigned) {
-      positioned.push({
-        entry: item.entry,
-        // 浮块以空档边界为中心摆放，理由见 centerOnBoundary
-        top: floating ? centerOnBoundary(item.top, item.height, totalHeight) : item.top,
-        height: item.height,
-        lane: Math.min(item.lane, MAX_LANES - 1),
-        laneCount,
-        // 超过 MAX_LANES 的块不消失，而是压成一条色条（窄列里切三道就没法看了）
-        collapsed: item.lane >= MAX_LANES,
-        floating,
-      });
-    }
-  };
-
-  for (let index = 0; index < measured.length; index += 1) {
-    const item = measured[index];
-    if (item.top >= groupBottom) {
-      flushGroup(index);
-      groupStart = index;
-      groupBottom = item.top + item.height;
-    } else {
-      groupBottom = Math.max(groupBottom, item.top + item.height);
-    }
+  const bounds = new Set<number>();
+  for (const block of blocks) {
+    bounds.add(block.top);
+    bounds.add(block.top + block.height);
   }
-  flushGroup(measured.length);
+  const sorted = [...bounds].sort((a, b) => a - b);
 
-  return positioned;
+  const segments: PositionedEntry[] = [];
+  for (let index = 0; index < sorted.length - 1; index += 1) {
+    const top = sorted[index];
+    const bottom = sorted[index + 1];
+    if (bottom - top < MIN_SEGMENT_HEIGHT) continue;
+
+    // 半开区间求交：端点相接（上一条 10:00 结束、下一条 10:00 开始）不算重叠
+    const covering = blocks.filter((block) => block.top < bottom && top < block.top + block.height);
+    if (covering.length === 0) continue;
+
+    const entries = covering.map((block) => block.entry);
+    segments.push({
+      entries,
+      top,
+      height: bottom - top,
+      floating,
+      key: `${entries.map((entry) => entry.id).join('|')}@${top}`,
+    });
+  }
+
+  return segments;
 }
 
 /**
- * 给某一天的所有块分道并定位。
+ * 给某一天的所有块定位并切段。
  *
- * 普通块和浮块**分开分道**，这是这个函数最要紧的一点。
+ * 普通块和浮块**分开切段**，这是这个函数最要紧的一点。
  *
  * 浮块是落在被压缩课间空档里、或完全在网格范围外的钟点事件
  * （见 BlockGeometry.floating）：它那 20px 高度是补出来的，真实时间上跟两侧课程
- * 都不重叠，只是网格没给它留像素。
- * 一旦让它和普通块混在一起分道，一个 09:58~10:05 的课间事件就会把第 3 节的课
- * 挤成半宽 —— 用户看到的是一节正常课程无故变窄，而那个事件本身也只有半宽，
- * 两边都读不了。分开之后课程保持全宽，事件照常可见可点。
- *
- * 超过 MAX_LANES 的块不会消失，而是标成 collapsed —— 手机上一列只有 50px 左右，
- * 再切三道就只剩十几像素，连一个汉字都放不下，所以多余的信息压成一条色条，
- * 保证数据仍然可见（点一下照样能打开详情）。
+ * 都不重叠，只是网格没给它留像素。一旦让它和普通块混在一起切段，
+ * 它就会在相邻课程上切出一道并不存在的「重叠带」，把正常课程的颜色也染混 ——
+ * 用户看到的是一节正常的课无故变成两截、颜色还对不上。
+ * 分开之后课程保持完整，事件照常可见可点。
  */
 export function layoutDay(
   entries: Entry[],
@@ -339,8 +356,8 @@ export function layoutDay(
 
   // 浮块排在数组后面：DOM 顺序决定层叠，浮块要压在普通课程块上面
   return [
-    ...assignLanes(normal, metrics.totalHeight, false),
-    ...assignLanes(floating, metrics.totalHeight, true),
+    ...segmentBlocks(normal, metrics.totalHeight, false),
+    ...segmentBlocks(floating, metrics.totalHeight, true),
   ];
 }
 
@@ -367,16 +384,22 @@ export function filterEntriesForWeek(entries: Entry[], week: number): Entry[] {
   return entries.filter((entry) => weekRuleContains(entry.weeks, week));
 }
 
+/** 一条记录在真实时间轴上的区间，单位是「当天第几分钟」。 */
+export interface RealTimeRange {
+  start: number;
+  end: number;
+}
+
 /**
  * 一条记录在**真实时间**上的区间，单位是「当天第几分钟」。
  *
  * 节次模式换算成该节次槽位自己的真实起止时刻；节次下标越界（节次表被改短过）
  * 时返回 null，由调用方跳过 —— 那种记录在网格上也画不出来。
+ *
+ * 导出给 domain/transitions.ts 复用：判断「相邻两条记录隔了多久」和判断
+ * 「两条记录是否冲突」用的是同一套时间口径，各写一份迟早会漂移。
  */
-function realTimeRange(
-  entry: Entry,
-  periods: PeriodSlot[],
-): { start: number; end: number } | null {
+export function getRealTimeRange(entry: Entry, periods: PeriodSlot[]): RealTimeRange | null {
   const { time } = entry;
 
   if (time.mode === 'clock') {
@@ -414,7 +437,7 @@ export function findConflicts(
   totalWeeks: number,
   periods: PeriodSlot[],
 ): Entry[] {
-  const candidateRange = realTimeRange(candidate, periods);
+  const candidateRange = getRealTimeRange(candidate, periods);
   if (!candidateRange) return [];
 
   return entries.filter((entry) => {
@@ -422,7 +445,7 @@ export function findConflicts(
     if (entry.weekday !== candidate.weekday) return false;
     if (!weekRulesOverlap(entry.weeks, candidate.weeks, totalWeeks)) return false;
 
-    const range = realTimeRange(entry, periods);
+    const range = getRealTimeRange(entry, periods);
     if (!range) return false;
 
     return range.start < candidateRange.end && candidateRange.start < range.end;

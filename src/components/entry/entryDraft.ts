@@ -35,6 +35,14 @@ export interface DraftPreset {
   /** 从空白格子点进来时预填的起始节次下标 */
   startPeriod?: number;
   totalWeeks: number;
+  /**
+   * 新建时「仅当前周」要落到的那一周。
+   *
+   * 由页面传进来（课表页给正在看的那一周，主页给今天所在的周），
+   * 不在这里自己读日期 —— 课表页可能正翻在第 7 周，用户在那里新建一条安排，
+   * 心里想的显然是「第 7 周」而不是「今天所在的第 3 周」。
+   */
+  currentWeek: number;
 }
 
 /** 新建时的初始草稿。 */
@@ -44,7 +52,9 @@ export function createDraft(preset: DraftPreset): EntryDraft {
     kind: preset.kind ?? 'course',
     title: '',
     weekday: preset.weekday ?? 1,
-    weeks: createWeekRule(1, preset.totalWeeks, 'all'),
+    // 默认「仅当前周」：临时安排（一次组会、一次补课）远比一上一学期的课常见，
+    // 而把周次改成「全学期」只需要点一下，反过来要逐周去猜就很烦
+    weeks: createWeekRule(preset.currentWeek, preset.currentWeek, 'all'),
     location: '',
     note: '',
     color: NEUTRAL_COLOR_KEY,

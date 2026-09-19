@@ -389,41 +389,20 @@ button {
 }
 
 /*
- * 被并排挤窄时改成中文竖排。
+ * 重叠带：同一段像素上压着两条以上记录（见 layout.ts 的 PositionedEntry）。
  *
- * 半列宽只有 20px，横向排一行连一个完整汉字都放不下 —— 实测标题可用宽度 10px、
- * 字号 12px，可见字符不到 1 个，等于只剩一个色块。竖排是唯一能在这个宽度下
- * 把课名读出来的排法：同样约 50px 的可用高度能放下 4 个字左右。
+ * 底色取各条记录的混合色并往白色方向淡化（见 colors.ts 的 blendPaletteColors），
+ * 所以重叠段一定比两侧的单色段浅 —— 这就是「颜色淡化重叠」的落点。
  *
- * 三个必须配套的点，少一个就退化成「字被裁掉」：
- * - 横向内边距一起收窄（5px → 2px），否则留给竖排那一行的宽度还不到一个字号
- * - 加 min-height: 0：flex 子项默认 min-height: auto（不小于内容高度），
- *   不加这一条就不会收缩，省略号也不会出现
- * - 地点在竖排下只能挤出一两个字，让位给课名；地点在详情抽屉里看
+ * 除颜色外还加一道内描边，这一条不是装饰：两条记录**颜色相同时**
+ * （同一门课排了两次、或者两条都用中性灰），混合色和原色几乎一样，
+ * 光靠颜色分不出哪里是重叠。描边不依赖颜色，是兜底信号。
  *
- * 宽度够的时候不启用，仍然保留横向多行的完整显示。
+ * 用 inset box-shadow 而不是 border —— border 会占掉内边距，
+ * 让本来就只有一两行位置的重叠带更放不下文字。
  */
-.entry-block--narrow {
-  padding-left: 2px;
-  padding-right: 2px;
-}
-
-.entry-block--narrow .entry-block__title {
-  display: block;
-  min-height: 0;
-  flex: 1 1 auto;
-  writing-mode: vertical-rl;
-  /* 让字母和数字保持正立 —— 12px 下旋转 90° 很难认 */
-  text-orientation: upright;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: normal;
-  letter-spacing: 0;
-}
-
-.entry-block--narrow .entry-block__meta {
-  display: none;
+.entry-block--overlap {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
 }
 
 /*
@@ -464,8 +443,7 @@ button {
  *
  * 这个高度下任何字号都会糊成一团，不如给一条干净的色条 ——
  * 块仍然可点，名称在 aria-label 里，详情抽屉里也看得到。
- * 注意这和 --collapsed 不是一回事：collapsed 表示「重叠太多、被折叠」，
- * 会画一个 +；sliver 只是太矮，没有这层含义，所以不画符号。
+ * 触发场景主要是重叠带被切得很窄的时候（两条记录只重合了 5 分钟）。
  */
 .entry-block--sliver {
   padding: 0;
@@ -474,19 +452,6 @@ button {
 .entry-block--sliver .entry-block__title,
 .entry-block--sliver .entry-block__meta {
   display: none;
-}
-
-/* 同一天同一时段记录过多时，多余的压成一条色条 */
-.entry-block--collapsed {
-  padding: 0;
-  justify-content: center;
-  align-items: center;
-}
-
-.entry-block--collapsed::after {
-  content: '+';
-  font-size: 12px;
-  opacity: 0.8;
 }
 
 /*
@@ -665,6 +630,63 @@ button {
 .text-button--danger {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+/* ── 重叠带的候选列表 ───────────────────────────────────── */
+
+/*
+ * 时间重叠的那一段里有多条记录时，点它先弹出这个列表让用户挑一条。
+ * 没有它，重叠带里的第二条记录就永远点不到（重叠带在网格上是一整块）。
+ */
+.picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.picker-item:active {
+  background: var(--bg-page);
+}
+
+/* 色条只做识别用，宽度给足才看得清色相，但不参与布局伸缩 */
+.picker-item__swatch {
+  flex: none;
+  width: 4px;
+  height: 30px;
+  border-radius: 2px;
+}
+
+/* min-width: 0 是必需的：flex 子项默认 min-width: auto，
+   不加这一条长课名会把容器撑破而不是显示省略号 */
+.picker-item__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.picker-item__title {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-item__meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 确认弹窗 ───────────────────────────────────────────── */

@@ -54,3 +54,15 @@ export function addMinutes(time: string, minutes: number): string {
   const total = Math.min(hour * 60 + minute + minutes, MINUTES_PER_DAY - 1);
   return formatClock(Math.floor(total / 60), total % 60);
 }
+
+/**
+ * 当天第几分钟 → 'HH:mm'。与 toMinutes 互逆。
+ *
+ * 转场时间（domain/transitions.ts）是拿「相邻两条记录的分钟数」直接算出来的，
+ * 需要把结果转回 'HH:mm' 才能存进数据模型。用 addMinutes('00:00', n) 也能凑出来，
+ * 但那是在表达「加」而不是「换算」，读的人得先想一秒。
+ */
+export function fromMinutes(minutes: number): string {
+  const total = Math.min(Math.max(Math.trunc(minutes), 0), MINUTES_PER_DAY - 1);
+  return formatClock(Math.floor(total / 60), total % 60);
+}

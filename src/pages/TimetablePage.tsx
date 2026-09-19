@@ -50,13 +50,15 @@ export function TimetablePage() {
         periods={data.periods}
         semester={data.semester}
         currentWeek={week}
-        onSelectEntry={editor.openDetail}
+        onSelectEntry={editor.openEntries}
         onSelectSlot={(weekday, startPeriod) => editor.openCreate({ weekday, startPeriod })}
         onPreviousWeek={goToPreviousWeek}
         onNextWeek={goToNextWeek}
       />
 
-      <EntrySheets editor={editor} />
+      {/* currentWeek 用正在看的那一周，不是今天所在的那一周 ——
+          用户翻到第 7 周再点空白格子，想加的就是第 7 周的安排 */}
+      <EntrySheets editor={editor} currentWeek={week} />
 
       <BottomSheet open={settingsOpen} onClose={() => setSettingsOpen(false)}>
         <SettingsSheet />

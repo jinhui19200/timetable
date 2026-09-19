@@ -24,7 +24,8 @@ interface TimetableGridProps {
   periods: PeriodSlot[];
   semester: SemesterConfig;
   currentWeek: number;
-  onSelectEntry: (entry: Entry) => void;
+  /** 点某一段：回传压在这一段上的全部记录（单条 / 重叠带都走这里） */
+  onSelectEntry: (entries: Entry[]) => void;
   /** 点空白格子新建，回传星期与节次下标 */
   onSelectSlot: (weekday: Weekday, periodIndex: number) => void;
   /** 横划翻周。与顶部箭头等价，边界由 useCurrentWeek 钳制 */

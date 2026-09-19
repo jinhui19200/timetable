@@ -70,3 +70,76 @@ export function pickColorByTitle(title: string): string {
 export function resolveEntryColor(entry: Pick<Entry, 'color'>): PaletteColor {
   return getPaletteColor(entry.color);
 }
+
+/* ── 重叠带配色 ─────────────────────────────────────────── */
+
+/** 重叠带的底色往白色方向淡化多少。0 = 不淡化，1 = 全白。 */
+export const OVERLAP_LIGHTEN = 0.25;
+
+type Rgb = [number, number, number];
+
+/** 解析不出来时用的兜底值，等于色板里的「中性」底色。 */
+const FALLBACK_RGB: Rgb = [217, 217, 217];
+
+/**
+ * '#RRGGBB' → [r, g, b]。
+ *
+ * 色板里的值都是这个格式，但 color 是存在用户数据里的字符串，
+ * 导入的 JSON 里可能是任意内容，解析不出来就退回中性色，不抛错。
+ */
+function hexToRgb(hex: string): Rgb {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!match) return FALLBACK_RGB;
+  const value = Number.parseInt(match[1], 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+function rgbToHex(rgb: Rgb): string {
+  return `#${rgb
+    .map((channel) =>
+      Math.round(Math.min(Math.max(channel, 0), 255))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
+
+function averageRgb(values: Rgb[]): Rgb {
+  const sum = values.reduce<Rgb>((acc, rgb) => [acc[0] + rgb[0], acc[1] + rgb[1], acc[2] + rgb[2]], [
+    0, 0, 0,
+  ]);
+  return [sum[0] / values.length, sum[1] / values.length, sum[2] / values.length];
+}
+
+/**
+ * 同一段像素上压着多条记录时的底色与文字色。
+ *
+ * 底色取各条记录底色的算术平均，再整体往白色方向淡化 OVERLAP_LIGHTEN。
+ *
+ * 「淡化」这一步不能省：两条记录**颜色相同时**（同一门课排了两次、或两条都用中性灰），
+ * 平均之后和原色一模一样，重叠就完全看不出来了 —— 而看不出重叠正是这次要解决的问题。
+ * 淡化之后重叠段必定比两侧更浅，配合 EntryBlock 里那道内描边，叠没叠一眼就能看出。
+ *
+ * 文字色只取平均、不淡化 —— 底色已经变浅，再把文字调浅会掉到对比度不足。
+ */
+export function blendPaletteColors(keys: string[]): PaletteColor {
+  const colors = keys.map(getPaletteColor);
+  if (colors.length === 0) return getPaletteColor(NEUTRAL_COLOR_KEY);
+  if (colors.length === 1) return colors[0];
+
+  const fill = averageRgb(colors.map((color) => hexToRgb(color.fill)));
+  const ink = averageRgb(colors.map((color) => hexToRgb(color.ink)));
+
+  const lightened: Rgb = [
+    fill[0] + (255 - fill[0]) * OVERLAP_LIGHTEN,
+    fill[1] + (255 - fill[1]) * OVERLAP_LIGHTEN,
+    fill[2] + (255 - fill[2]) * OVERLAP_LIGHTEN,
+  ];
+
+  return {
+    key: 'overlap',
+    name: colors.map((color) => color.name).join('+'),
+    fill: rgbToHex(lightened),
+    ink: rgbToHex(ink),
+  };
+}

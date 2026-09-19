@@ -35,6 +35,8 @@ interface EntryFormSheetProps {
   preset?: Omit<DraftPreset, 'totalWeeks'>;
   periods: PeriodSlot[];
   semester: SemesterConfig;
+  /** 「仅当前周」要落到的那一周。新建时用它做周次默认值 */
+  currentWeek: number;
   /** 已有的全部记录，用于冲突检测 */
   existingEntries: Entry[];
   onSubmit: (entry: Entry) => void;
@@ -56,12 +58,15 @@ export function EntryFormSheet({
   preset,
   periods,
   semester,
+  currentWeek,
   existingEntries,
   onSubmit,
   onCancel,
 }: EntryFormSheetProps) {
   const [draft, setDraft] = useState<EntryDraft>(() =>
-    initial ? draftFromEntry(initial) : createDraft({ totalWeeks: semester.totalWeeks, ...preset }),
+    initial
+      ? draftFromEntry(initial)
+      : createDraft({ totalWeeks: semester.totalWeeks, currentWeek, ...preset }),
   );
 
   // 用户是否手动挑过颜色。挑过之后就不再按科目名自动改色，尊重用户的选择。
@@ -170,6 +175,7 @@ export function EntryFormSheet({
         <WeekRangeEditor
           value={draft.weeks}
           totalWeeks={semester.totalWeeks}
+          currentWeek={currentWeek}
           onChange={(weeks) => patch({ weeks })}
         />
       </div>

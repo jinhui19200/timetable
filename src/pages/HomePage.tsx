@@ -122,7 +122,8 @@ export function HomePage() {
         </section>
       </div>
 
-      <EntrySheets editor={editor} />
+      {/* 主页没有翻周，当前周就是今天所在的那一周 */}
+      <EntrySheets editor={editor} currentWeek={week} />
 
       <BottomSheet open={settingsOpen} onClose={() => setSettingsOpen(false)}>
         <SettingsSheet />
