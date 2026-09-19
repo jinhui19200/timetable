@@ -426,6 +426,56 @@ button {
   display: none;
 }
 
+/*
+ * 块高排不下一行正文时换成紧凑排版。
+ *
+ * 午休 / 晚休这类跨分组空档在网格上只有 GROUP_GAP = 24px，落在里面的钟点事件
+ * 按比例分到的像素可能只有十几 px。正文是 12px 字号 × 1.25 行高 = 15px，
+ * 加上下各 4px 内边距需要 23px —— 不够时文字会被 overflow: hidden
+ * **从中间横向切断**，看起来像渲染坏了，比不显示还糟。
+ *
+ * 紧凑排版把内边距压到 1px、字号降到 11px、行高压到 1，13px 起就能排下一行。
+ * 地点一并隐藏 —— 这个高度只够保住课名。
+ *
+ * 阈值是 layout.ts 的 MIN_TEXT_HEIGHT / MIN_TIGHT_HEIGHT，改动时两边要一起改。
+ */
+.entry-block--tight {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.entry-block--tight .entry-block__title {
+  /* 覆盖基类的 -webkit-box + line-clamp: 3，这里只要单行 */
+  display: block;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+.entry-block--tight .entry-block__meta {
+  display: none;
+}
+
+/*
+ * 连紧凑排版都放不下（块高 < MIN_TIGHT_HEIGHT）时只留一条色条，不排文字。
+ *
+ * 这个高度下任何字号都会糊成一团，不如给一条干净的色条 ——
+ * 块仍然可点，名称在 aria-label 里，详情抽屉里也看得到。
+ * 注意这和 --collapsed 不是一回事：collapsed 表示「重叠太多、被折叠」，
+ * 会画一个 +；sliver 只是太矮，没有这层含义，所以不画符号。
+ */
+.entry-block--sliver {
+  padding: 0;
+}
+
+.entry-block--sliver .entry-block__title,
+.entry-block--sliver .entry-block__meta {
+  display: none;
+}
+
 /* 同一天同一时段记录过多时，多余的压成一条色条 */
 .entry-block--collapsed {
   padding: 0;

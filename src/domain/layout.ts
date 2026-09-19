@@ -59,6 +59,28 @@ export const MAX_LANES = 2;
 export const MIN_CLOCK_HEIGHT = 20;
 
 /**
+ * 排下一行正文所需的最小块高。
+ *
+ * 块内上下各 4px 内边距，正文 12px 字号 × 1.25 行高 = 15px，合计 23px。
+ * 低于这个高度，文字会被 `overflow: hidden` **从中间横向切断** —— 看起来像渲染坏了，
+ * 比不显示更糟。渲染层据此换用紧凑排版（见 global.css 的 .entry-block--tight）。
+ *
+ * 触发场景：跨分组空档（午休 / 晚休）在网格上只有 GROUP_GAP = 24px，
+ * 落在里面的钟点事件按比例分到的像素可能只有十几 px。
+ * 注意这和 `floating` 不是一回事 —— 那类块是**零**像素，这类是像素不够排字。
+ */
+export const MIN_TEXT_HEIGHT = 23;
+
+/**
+ * 紧凑排版能排下一行所需的最小块高。
+ *
+ * 上下各 1px 内边距 + 11px 字号 × 1 行高 = 13px。再矮就连紧凑排版也放不下，
+ * 渲染层只留一条色条（见 global.css 的 .entry-block--sliver），
+ * 名称交给 aria-label 和详情抽屉。
+ */
+export const MIN_TIGHT_HEIGHT = 13;
+
+/**
  * 真实时间 → 像素的映射器。
  *
  * 由 domain/timeAxis.ts 在 M5 提供实现；在那之前钟点模式的事件没有映射器，
