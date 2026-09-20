@@ -14,7 +14,10 @@ import tseslint from 'typescript-eslint';
  * 所以 package.json 里 TypeScript 锁在 ~5.9.3，不能用最新的 7.x，否则 lint 直接起不来。
  */
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules'] },
+  // `.wrangler` 是 wrangler 的本地状态目录（本地 D1 的 sqlite、`pages dev` 编译出来的
+  // 临时 bundle）。不忽略的话，只要本地开发服务器开着，`npm run lint` 就会对着
+  // 那些自动生成的文件报几百个错 —— 而它们根本不是我们的代码。
+  { ignores: ['dist', 'node_modules', '.wrangler'] },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

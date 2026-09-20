@@ -192,14 +192,24 @@ export function useAccountStore(): StoreValue {
         } else {
           const remote = await fetchAccountData(target);
           if (cancelled) return;
-          // 拉取期间用户改过东西就不替换：那些改动比远端这一份更新。
-          // 这不是「合并」，只是不做「用更旧的数据盖掉刚做的改动」这一件事；
-          // 替换掉之后紧接着的补推会把改动原样推上去，等于改动没生效。
+
           if (remote && !deferredPush.current) {
+            // 远端有这一份，且拉取期间用户没改过东西 → 远端赢（用户选定的「冲突直接覆盖」）。
+            // 拉取期间改过就不替换：那些改动比远端这份更新，替换掉之后紧接着的补推
+            // 会把改动原样推上去，等于改动没生效。
             skipPush.current = true;
             rawDispatch(appActions.replaceData(remote));
             // 立刻落盘，不等防抖 —— 拉完紧接着用户可能就关掉页面了
             saveLocalData(target, remote);
+          } else if (!remote && hasLocalData(target)) {
+            // 服务端没有这个账户，但本机有 → 把它建到服务端去。
+            //
+            // 不建的话会留下一个「幽灵账户」：它只存在于本机，一旦被切走就再也
+            // 列不出来（列表来自服务端），而用户手动输入同名想切回来时，会因为
+            // 列表里没有它而被当成「新建」，用一份空数据把它覆盖掉 —— 本机的课表
+            // 就这么没了。首次启动的默认账户正好是这个情况：它有种子数据，
+            // 但用户只要一直没编辑过，就永远不会被推送。
+            enqueuePush(target, loadLocalData(target, createEmptyAppData()));
           }
         }
 
@@ -336,9 +346,15 @@ export function useAccountStore(): StoreValue {
       if (!trimmed || trimmed === stateRef.current.name) return;
 
       // 重名绝不能当新建处理 —— 那会用一份空数据把已有账户覆盖掉。
-      // 弹窗里已经拦了一道，这里再拦一道：这个 hook 是公开的，
-      // 不该指望每个调用方都记得先查重。
-      if (list.some((item) => item.username === trimmed)) {
+      //
+      // 两个来源都要查：
+      // - 服务端列表：正常的重名。
+      // - 本机存储：账户只存在于本机、还没上传过的情况（首次启动的默认账户就是）。
+      //   只查服务端列表的话，用户手动输入这个同名想切回去，会被当成新建 ——
+      //   而 activate 会先 saveLocalData(next, 空数据)，本机的课表当场被抹掉。
+      //   弹窗里已经拦了一道，这里再拦一道：这个 hook 是公开的，
+      //   不该指望每个调用方都记得先查重。
+      if (list.some((item) => item.username === trimmed) || hasLocalData(trimmed)) {
         switchAccount(trimmed);
         return;
       }
