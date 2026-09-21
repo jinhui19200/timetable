@@ -281,12 +281,17 @@ NODE_PATH=~/.workbuddy-ai/binaries/node/workspace/node_modules node .workbuddy-a
 
 | 脚本 | 测什么 |
 | --- | --- |
-| `e2e-account.js` | 账户与同步：迁移、上传、新建/切换、重名、换设备、离线、冲突覆盖 |
+| `e2e-account.js` | 账户与同步：迁移、幽灵账户补建、上传、新建/切换、重名、换设备、离线、离线查重、冲突覆盖 |
+| `probe-account-ui.js` | 账户 UI 几何：三种视口下账户卡片与切换弹窗是否完整可见、长名字会不会把「切换」按钮挤出屏幕、账户多了列表会不会把新建表单顶出屏幕 |
 | `e2e-write.js` | 新建 → 详情 → 编辑 → 删除 → 冲突提示 → 刷新持久化 |
 | `e2e-overlap.js` | 重叠切段、混合色、候选列表、周次默认值、转场 |
 | `e2e-settings.js` | 学期、节次表、导入导出、清空 |
 | `e2e-swipe.js` | 网格左右横划换周 |
-| `regression.js` | 全应用几何回归（列宽、横向滚动、运行时错误） |
+| `regression.js` | 全应用几何回归（**只量课表页**；主页只截图） |
 | `probe-blocks.js` / `probe-boxes.js` | 临时探针，量块坐标用 |
+
+⚠️ `probe-account-ui.js` 会往被测服务端写 21 个压力账户（所以它**拒绝非 localhost 地址**），
+跑完要自己清库。`regression.js` 对主页**只截图、不量几何** —— 主页上的账户卡片和弹窗靠
+`probe-account-ui.js` 补上。
 
 **只有 `e2e-account.js` 会真的读写云端**，其余脚本都用 `_shared.js` 里的 `blockSync()` 把 `/api/**` 断掉 —— 它们断言的是渲染与交互，前提是「种进去的数据原样还在」，而账户同步会在启动时用云端那份整份替换掉种子数据。断掉之后应用退回纯本地模式，行为与加账户功能之前一致。
