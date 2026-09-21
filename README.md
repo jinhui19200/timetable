@@ -288,6 +288,7 @@ NODE_PATH=~/.workbuddy-ai/binaries/node/workspace/node_modules node .workbuddy-a
 | `e2e-settings.js` | 学期、节次表、导入导出、清空 |
 | `e2e-swipe.js` | 网格左右横划换周 |
 | `regression.js` | 全应用几何回归（**只量课表页**；主页只截图） |
+| `shot-account.js` | 给账户 UI 截图供人工过目（只在本地跑，会建测试账户） |
 | `probe-blocks.js` / `probe-boxes.js` | 临时探针，量块坐标用 |
 
 ⚠️ `probe-account-ui.js` 会往被测服务端写 21 个压力账户（所以它**拒绝非 localhost 地址**），
