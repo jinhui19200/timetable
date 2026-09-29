@@ -304,10 +304,45 @@ NODE_PATH=~/.workbuddy-ai/binaries/node/workspace/node_modules node .workbuddy-a
 | `e2e-swipe.js` | 网格左右横划换周 |
 | `regression.js` | 全应用几何回归（**只量课表页**；主页只截图） |
 | `shot-account.js` | 给账户 UI 截图供人工过目（只在本地跑，会建测试账户） |
+| `shot-changes.js` | 用**线上真实数据**渲染并截图（只读线上 API、写本地预览库），改完 UI 用它给人看效果 |
+| `dev-server.js` | 本地开发服务器：静态托管 `dist` + 复刻 Functions 的四个接口。**不依赖 wrangler / workerd**，见下 |
 | `probe-blocks.js` / `probe-boxes.js` | 临时探针，量块坐标用 |
 
 ⚠️ `probe-account-ui.js` 会往被测服务端写 21 个压力账户（所以它**拒绝非 localhost 地址**），
 跑完要自己清库。`regression.js` 对主页**只截图、不量几何** —— 主页上的账户卡片和弹窗靠
 `probe-account-ui.js` 补上。
+
+### 本地为什么不用 `wrangler pages dev`
+
+wrangler 依赖 workerd（约 60MB 的原生二进制，npm 在 postinstall 阶段拉）。这台机器的代理
+会间歇性抽风，实测拉到的是**损坏或无限增长**的文件，于是：
+
+```
+✘ [ERROR] spawn Unknown system error -88
+```
+
+errno 88 是 `EBADMACHO` —— 二进制结构不合法（连 `codesign` 都过不了校验）。而 macOS
+在 Apple Silicon 上要求 arm64 二进制必须有签名，所以这个文件永远执行不了。
+这条链路一坏，本地什么都验不了。
+
+`dev-server.js` 用 Node 自带的 http 复刻同样的接口契约，零依赖、不联网、启动 0.2 秒：
+
+```bash
+node .workbuddy-ai/scripts/dev-server.js 8788      # 数据存 /tmp/timetable-dev-db.json
+```
+
+**它只是本地验证用的**，线上仍然是真正的 Pages Functions + D1。改了
+`functions/api/*.js` 的校验规则或响应形状时，这里要跟着改。
+
+⚠️ **部署仍然需要 wrangler**，但 `pages deploy` 不 spawn workerd —— 它只在 import 阶段
+检查 `@cloudflare/workerd-darwin-arm64/bin/workerd` **这个文件存不存在**。
+所以可以跳过可选依赖装、再放一个占位文件骗过检查：
+
+```bash
+npm install wrangler --no-optional
+mkdir -p node_modules/@cloudflare/workerd-darwin-arm64/bin
+printf '#!/bin/sh\nexit 1\n' > node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd
+chmod +x node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd
+```
 
 **只有 `e2e-account.js` 会真的读写云端**，其余脚本都用 `_shared.js` 里的 `blockSync()` 把 `/api/**` 断掉 —— 它们断言的是渲染与交互，前提是「种进去的数据原样还在」，而账户同步会在启动时用云端那份整份替换掉种子数据。断掉之后应用退回纯本地模式，行为与加账户功能之前一致。
