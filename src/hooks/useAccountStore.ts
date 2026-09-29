@@ -96,6 +96,32 @@ export function useAccountStore(): StoreValue {
   /** 正在往云端写的账户名。 */
   const [savingName, setSavingName] = useState<string | null>(null);
   const [failure, setFailure] = useState<SyncFailure | null>(null);
+  /**
+   * 拉取 effect 的重跑计数。加一 = 「再拉一次」。
+   *
+   * 单独用一个计数而不是直接调某个函数：拉取的整套逻辑（关闸、先补推再拉、
+   * 拉完开闸）都在那个 effect 里，重跑它就是复用那一整套，不必再抄一份。
+   */
+  const [pullNonce, setPullNonce] = useState(0);
+
+  /**
+   * 断网恢复后自动重拉一次。
+   *
+   * 不加这个的话，**启动拉取失败一次就再也不会自己好**：卡片一直显示「未同步」，
+   * 离线期间的改动要等到下次打开应用才补推上去（靠 pending 标记），
+   * 而用户在这中间看到的是一个永远「未同步」的界面 —— 会以为同步坏了。
+   *
+   * 只监听浏览器自己的 `online` 事件，**不做轮询**：网络什么时候回来浏览器最清楚，
+   * 轮询在真正断网时只会白白耗电、还拖慢手机。
+   *
+   * 重跑是安全的：effect 里那条「有 pending 就先补推、再拉取」的分支正好接住
+   * 离线期间攒下的改动，不会用远端旧数据把它盖掉。
+   */
+  useEffect(() => {
+    const retry = () => setPullNonce((nonce) => nonce + 1);
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, []);
 
   /** 最新状态。给事件回调和异步续写用 —— 它们拿到的闭包可能已经过期。 */
   const stateRef = useRef(state);
@@ -167,6 +193,9 @@ export function useAccountStore(): StoreValue {
     // 否则切换账户的那一帧会把上一个账户的课表推到新账户名下。
     gate.current = { name: target, open: false };
     deferredPush.current = false;
+    // 让卡片显示「正在读取云端数据…」。切换账户时 activate 已经设过，
+    // 但**断网恢复后的重拉**没有别的地方会设，不设的话用户看不到任何反馈。
+    setPullingName(target);
 
     /**
      * 拉取结束：开闸，并把闸门关着期间攒下的改动补推一次。
@@ -240,7 +269,7 @@ export function useAccountStore(): StoreValue {
     return () => {
       cancelled = true;
     };
-  }, [enqueuePush, state.name]);
+  }, [enqueuePush, state.name, pullNonce]);
 
   /* ── 推送 ─────────────────────────────────────────────── */
 
