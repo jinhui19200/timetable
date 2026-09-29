@@ -435,7 +435,13 @@ export function useAccountStore(): StoreValue {
       const { data } = stateRef.current;
 
       // ① 新名字先落袋
-      await pushAccountData(trimmed, data);
+      try {
+        await pushAccountData(trimmed, data);
+      } catch (cause) {
+        // 翻成人话再抛 —— 否则界面上会显示 WebKit 的英文原始错误（`Load failed`）。
+        // 注意这里**不能**吞掉：新名字没写成功，改名就没发生，必须让用户知道。
+        throw new Error(describeSyncError(cause));
+      }
 
       // ② 本机跟着搬过去：本地键、当前账户名、store 里的名字
       saveLocalData(trimmed, data);
@@ -475,7 +481,14 @@ export function useAccountStore(): StoreValue {
       throw new Error('不能删除正在使用的账户，先切到别的账户再删');
     }
 
-    await deleteAccountData(target);
+    try {
+      await deleteAccountData(target);
+    } catch (cause) {
+      // 把 fetch 的原始错误翻成人话再抛给界面。
+      // 不翻的话用户在 WebKit 上看到的是一句英文的 `Load failed`（实测就是这样）——
+      // 而 fetch 的原始报错在别的引擎上又是另一套措辞，界面不该直接显示它们。
+      throw new Error(describeSyncError(cause));
+    }
     clearStoredData(target);
     clearPendingPush(target);
     setList((prev) => prev.filter((item) => item.username !== target));
