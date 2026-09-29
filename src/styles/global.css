@@ -1340,6 +1340,34 @@ button {
   background: var(--accent-soft);
 }
 
+/* 每行现在是「整行按钮 + 删除按钮」两个**兄弟节点**（按钮不能嵌按钮），
+   行本身用 flex 摆，让整行按钮占满剩余宽度。 */
+.account-list__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-list__row .account-list__item {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+/* 删除入口做得克制：它是列表里的次要操作，不该比「切换」更抢眼。
+   用文字而不是图标 —— 「删除」两个字在中文界面里比一个垃圾桶更明确。 */
+.account-list__delete {
+  flex: none;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+}
+
+.account-list__delete:active {
+  background: var(--bg-page);
+}
+
 .account-list__avatar {
   flex: none;
   width: 24px;

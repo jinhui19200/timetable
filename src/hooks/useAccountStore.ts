@@ -459,6 +459,28 @@ export function useAccountStore(): StoreValue {
     [activate, list],
   );
 
+  /**
+   * 删掉一个账户：云端那一行 + 本机的三个键。
+   *
+   * 只允许删**当前账户之外**的账户。删当前账户要么得先悄悄切走、要么得把正在用的东西
+   * 删掉 —— 两种都容易把用户绕晕（「我的课表怎么没了」），所以界面直接不给这个入口，
+   * 这里再拦一道：hook 是公开的，不该指望每个调用方都记得。
+   *
+   * 失败时抛异常，由调用方显示原因 —— 删除是用户主动发起的，静默失败比报错更糟。
+   */
+  const deleteAccount = useCallback(async (name: string) => {
+    const target = name.trim();
+    if (!target) return;
+    if (target === stateRef.current.name) {
+      throw new Error('不能删除正在使用的账户，先切到别的账户再删');
+    }
+
+    await deleteAccountData(target);
+    clearStoredData(target);
+    clearPendingPush(target);
+    setList((prev) => prev.filter((item) => item.username !== target));
+  }, []);
+
   const refreshList = useCallback(() => {
     const target = stateRef.current.name;
     setListLoading(true);
@@ -504,6 +526,7 @@ export function useAccountStore(): StoreValue {
         switchAccount,
         createAccount,
         renameAccount,
+        deleteAccount,
       },
     }),
     [
@@ -517,6 +540,7 @@ export function useAccountStore(): StoreValue {
       switchAccount,
       createAccount,
       renameAccount,
+      deleteAccount,
     ],
   );
 }

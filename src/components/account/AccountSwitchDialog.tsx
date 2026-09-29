@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useStore } from '../../store/useStore';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { CloseIcon } from '../common/Icon';
 
 /** 账户名长度上限，和服务端 functions/api/account.js 里的 MAX_USERNAME_LENGTH 保持一致。 */
@@ -49,6 +50,10 @@ export function AccountSwitchDialog({ onClose }: { onClose: () => void }) {
    */
   const { refreshList } = account;
   const [draft, setDraft] = useState('');
+  /** 待确认删除的账户名；null 表示没有 */
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // 拉一次云端账户列表：用户很可能刚在另一台设备上建了账户。
   useEffect(() => {
@@ -74,6 +79,26 @@ export function AccountSwitchDialog({ onClose }: { onClose: () => void }) {
   const rows = account.list.some((item) => item.username === account.name)
     ? account.list
     : [{ username: account.name, revision: 0, updatedAt: '' }, ...account.list];
+
+  /**
+   * 确认删除账户。
+   *
+   * 失败时**保持弹窗开着**并把原因显示出来 —— 直接关掉的话用户只看到「点了没反应」，
+   * 而最常见的原因是断网（云端那份没删掉，不能假装删了）。
+   */
+  const confirmDelete = async () => {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await account.deleteAccount(pendingDelete);
+      setPendingDelete(null);
+      setDeleteError(null);
+    } catch (cause) {
+      setDeleteError(cause instanceof Error ? cause.message : '删除失败');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -123,7 +148,7 @@ export function AccountSwitchDialog({ onClose }: { onClose: () => void }) {
             {rows.map((item) => {
               const current = item.username === account.name;
               return (
-                <li key={item.username}>
+                <li key={item.username} className="account-list__row">
                   <button
                     type="button"
                     className={`account-list__item${current ? ' account-list__item--current' : ''}`}
@@ -141,6 +166,24 @@ export function AccountSwitchDialog({ onClose }: { onClose: () => void }) {
                       {current ? '当前' : relativeTime(item.updatedAt)}
                     </span>
                   </button>
+
+                  {/*
+                    当前账户不给删除入口 —— 删它要么得先悄悄切走、要么得把正在用的东西删掉，
+                    两种都容易把用户绕晕。要删就先切到别的账户（hook 里也拦了一道）。
+                  */}
+                  {current ? null : (
+                    <button
+                      type="button"
+                      className="account-list__delete"
+                      onClick={() => {
+                        setDeleteError(null);
+                        setPendingDelete(item.username);
+                      }}
+                      aria-label={`删除账户 ${item.username}`}
+                    >
+                      删除
+                    </button>
+                  )}
                 </li>
               );
             })}
@@ -173,6 +216,28 @@ export function AccountSwitchDialog({ onClose }: { onClose: () => void }) {
           </div>
         </form>
       </div>
+
+      {/*
+        删除确认。它在切换弹窗的 backdrop **里面**（是 `.dialog` 的兄弟），
+        所以点它的背板会冒泡到外面那层 backdrop、把切换弹窗一起关掉 ——
+        靠 ConfirmDialog 背板上的 stopPropagation 挡住，见那边的注释。
+      */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="删除这个账户？"
+        message={
+          deleteError
+            ? deleteError
+            : `「${pendingDelete ?? ''}」在云端的整份数据会被永久删除，无法恢复。其他账户不受影响。`
+        }
+        confirmLabel={deleting ? '删除中…' : '删除'}
+        danger
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => {
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
+      />
     </div>
   );
 }

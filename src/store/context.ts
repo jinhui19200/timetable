@@ -37,6 +37,12 @@ export interface AccountValue {
    * 改名是用户主动发起的，失败必须让他知道，否则他会以为改成功了。
    */
   renameAccount: (name: string) => Promise<void>;
+  /**
+   * 删掉一个账户（云端那一行 + 本机的键）。**不可恢复。**
+   *
+   * 不允许删当前账户（会抛异常）—— 界面也不给这个入口，先切走再删。
+   */
+  deleteAccount: (name: string) => Promise<void>;
 }
 
 export interface StoreValue {

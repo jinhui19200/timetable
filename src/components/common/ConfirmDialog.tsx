@@ -31,7 +31,16 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="dialog-backdrop" onClick={onCancel} role="presentation">
+    <div
+      className="dialog-backdrop"
+      onClick={(event) => {
+        // 阻止冒泡：确认框可能被渲染在**另一个弹窗的 backdrop 里面**（账户切换弹窗里的
+        // 删除确认就是这样）。不挡的话，点确认框的背板会连带把外层弹窗也关掉。
+        event.stopPropagation();
+        onCancel();
+      }}
+      role="presentation"
+    >
       <div className="dialog" onClick={(event) => event.stopPropagation()} role="alertdialog">
         <p className="dialog__title">{title}</p>
         {message ? <p className="dialog__message">{message}</p> : null}
