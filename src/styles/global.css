@@ -1229,12 +1229,28 @@ button {
   white-space: nowrap;
 }
 
+/* 双击改名时替换掉上面那个 span。
+   ⚠️ 必须显式压掉 .form-input 的高度和内边距：卡片里这一行只有 15px 字号，
+   照搬弹窗里的输入框会把卡片撑高一倍，整块往下顶。 */
+.account-card__name-input {
+  height: 22px;
+  padding: 0 6px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
 .account-card__status {
   font-size: 11px;
   color: var(--text-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 改名失败（最常见是撞名）。和「未同步」用同一个暖色 —— 都是「要你知道、
+   但本地数据完好」的状态，不该和删除那类危险操作的红色混在一起。 */
+.account-card__status--warn {
+  color: var(--accent);
 }
 
 /* 未同步用暖色而不是红色：它是「需要你知道、但不必惊慌」的状态，

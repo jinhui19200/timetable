@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { SyncPhase } from '../../store/context';
 import { useStore } from '../../store/useStore';
 import { AccountSwitchDialog } from './AccountSwitchDialog';
@@ -29,12 +30,80 @@ function syncLabel(phase: SyncPhase, error: string | null): string {
  * 占一个底部标签位不值得 —— 底部标签应该留给每天都在用的功能。
  * 放在主页顶部还有一个好处：切完账户马上就能看到「今日安排」变了没有，
  * 切错了一眼就知道。
+ *
+ * **双击账户名可以就地改名**（回车确认、Esc 取消）。改名会同步到云端：
+ * 先把数据写到新名字下、成功后再删掉旧名字，所以改名后别的设备用新名字就能读到。
  */
 export function AccountCard() {
   const { account } = useStore();
   const [dialogOpen, setDialogOpen] = useState(false);
+  /** 非 null 表示正在改名，值是编辑中的草稿 */
+  const [draft, setDraft] = useState<string | null>(null);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  /**
+   * 这一次 blur 是「按 Esc 取消」触发的，不要提交。
+   *
+   * 需要一个标记是因为：Enter 和 Esc 都靠 `blur()` 收尾（避免 Enter 和 blur
+   * 各提交一次），而 blur 处理器分不清这次模糊是确认还是取消。
+   */
+  const skipCommit = useRef(false);
 
   const offline = account.phase === 'offline';
+
+  const startRename = () => {
+    setRenameError(null);
+    setDraft(account.name);
+  };
+
+  const cancelRename = () => {
+    skipCommit.current = false;
+    setDraft(null);
+    setRenameError(null);
+  };
+
+  const commitRename = async () => {
+    if (draft === null || renaming) return;
+    const next = draft.trim();
+    // 没改动或改成空 → 当作取消，不要为一次误触发起请求
+    if (!next || next === account.name) {
+      cancelRename();
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      await account.renameAccount(next);
+      setDraft(null);
+      setRenameError(null);
+    } catch (cause) {
+      // 失败时**保持编辑态**并把原因显示出来 —— 直接退回只读态的话，
+      // 用户看到名字没变却不知道为什么（最常见的原因是撞名）。
+      setRenameError(cause instanceof Error ? cause.message : '改名失败');
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      // 交给 blur 统一提交，避免 Enter 和随后的 blur 各提交一次
+      event.currentTarget.blur();
+      return;
+    }
+    if (event.key === 'Escape') {
+      skipCommit.current = true;
+      event.currentTarget.blur();
+    }
+  };
+
+  const handleBlur = () => {
+    if (skipCommit.current) {
+      cancelRename();
+      return;
+    }
+    void commitRename();
+  };
 
   return (
     <>
@@ -45,9 +114,37 @@ export function AccountCard() {
         </span>
 
         <span className="account-card__body">
-          <span className="account-card__name">{account.name}</span>
-          <span className="account-card__status" role="status">
-            {syncLabel(account.phase, account.error)}
+          {draft === null ? (
+            <span
+              className="account-card__name"
+              // 双击改名。移动端浏览器会把双击手势映射成 dblclick，
+              // 所以手机上双击也能进编辑态。
+              onDoubleClick={startRename}
+              title="双击改名"
+            >
+              {account.name}
+            </span>
+          ) : (
+            <input
+              className="form-input account-card__name-input"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleBlur}
+              aria-label="账户名"
+              autoComplete="off"
+              enterKeyHint="done"
+              // 用户是双击主动进编辑态的，这里聚焦正是他要的，不是「自动抢焦点」
+              autoFocus
+              disabled={renaming}
+            />
+          )}
+
+          <span
+            className={`account-card__status${renameError ? ' account-card__status--warn' : ''}`}
+            role="status"
+          >
+            {renameError ?? (renaming ? '正在改名…' : syncLabel(account.phase, account.error))}
           </span>
         </span>
 

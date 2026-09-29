@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { buildTransitionEntry, findTransitionGaps } from '../domain/transitions';
 import type { TransitionGap } from '../domain/transitions';
+import {
+  expandWeeks,
+  isWeekRuleEmpty,
+  removeWeekFromRule,
+  weekRuleContains,
+} from '../domain/weeks';
 import { appActions } from '../store/reducer';
 import { useStore } from '../store/useStore';
 import type { Entry, Weekday } from '../types/entry';
@@ -37,8 +43,11 @@ export interface TransitionPrompt {
  * 状态里**只存 id**，不存 Entry 对象本身 ——
  * 否则 store 更新后抽屉里还挂着旧对象，会显示过期数据。存 id 再回 store 查，
  * 记录被别处删掉时抽屉也会自然关闭。
+ *
+ * @param currentWeek 用户当前正在看的那一周。删除时要用它来决定「仅删本周」删的是哪一周 ——
+ *   主页传今天所在的周，课表页传正在翻到的那一周。
  */
-export function useEntryEditor() {
+export function useEntryEditor(currentWeek: number) {
   const { data, dispatch } = useStore();
 
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -161,17 +170,72 @@ export function useEntryEditor() {
 
   const requestDelete = useCallback((entry: Entry) => setPendingDeleteId(entry.id), []);
 
-  const confirmDelete = useCallback(() => {
-    if (pendingDeleteId) dispatch(appActions.removeEntry(pendingDeleteId));
-    setPendingDeleteId(null);
-    setDetailId(null);
-  }, [pendingDeleteId, dispatch]);
+  /**
+   * 删除时要不要问「仅删本周还是全删」。
+   *
+   * 两个条件都成立才值得问：
+   * - 这条记录**在当前看的那一周里**（否则「仅删本周」没有意义）；
+   * - 它还占着**别的周**（本来就只占这一周时，两个选项结果完全一样，多问一句只是添乱）。
+   */
+  const deleteOffersSingleWeek = useMemo(() => {
+    if (!pendingDelete) return false;
+    if (!weekRuleContains(pendingDelete.weeks, currentWeek)) return false;
+    return expandWeeks(pendingDelete.weeks, data.semester.totalWeeks).size > 1;
+  }, [pendingDelete, currentWeek, data.semester.totalWeeks]);
+
+  /**
+   * 确认删除。
+   *
+   * scope='week' 只把当前这一周从周次规则里去掉，记录本身保留（其余周次照上）；
+   * scope='all' 删掉整条记录。
+   *
+   * 注意「仅删本周」改的是 `weeks` 而不是删记录 —— 所以它是**可撤销的编辑**，
+   * 只是界面上不提供撤销。走 updateEntry 而不是 removeEntry 是必须的，
+   * 否则「只在第 3 周删掉」会把整门课从所有周次里抹掉。
+   */
+  const confirmDelete = useCallback(
+    (scope: 'week' | 'all' = 'all') => {
+      const entry = pendingDeleteId
+        ? (data.entries.find((item) => item.id === pendingDeleteId) ?? null)
+        : null;
+
+      if (entry) {
+        if (scope === 'week' && deleteOffersSingleWeek) {
+          const weeks = removeWeekFromRule(entry.weeks, currentWeek, data.semester.totalWeeks);
+          // 规则被删空了说明这一周本来就是它唯一的周次 —— deleteOffersSingleWeek
+          // 已经排除了这种情况，这里兜底走整条删除，免得留下一条哪儿都不显示的记录。
+          dispatch(
+            isWeekRuleEmpty(weeks)
+              ? appActions.removeEntry(entry.id)
+              : appActions.updateEntry({ ...entry, weeks, updatedAt: new Date().toISOString() }),
+          );
+        } else {
+          dispatch(appActions.removeEntry(entry.id));
+        }
+      }
+
+      setPendingDeleteId(null);
+      setDetailId(null);
+    },
+    [
+      pendingDeleteId,
+      deleteOffersSingleWeek,
+      currentWeek,
+      data.entries,
+      data.semester.totalWeeks,
+      dispatch,
+    ],
+  );
 
   return {
     detailEntry,
     editingEntry,
     formTarget,
     pendingDelete,
+    /** 删除弹窗要不要给出「仅删本周」这个选项，见 deleteOffersSingleWeek */
+    deleteOffersSingleWeek,
+    /** 当前正在看的那一周，「仅删本周」的文案要用 */
+    currentWeek,
     pendingPick,
     pendingTransitions,
     openDetail,

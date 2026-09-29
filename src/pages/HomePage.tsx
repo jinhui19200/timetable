@@ -33,12 +33,13 @@ function startMinutes(entry: Entry, periods: PeriodSlot[]): number {
  */
 export function HomePage() {
   const { data } = useStore();
-  const editor = useEntryEditor();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const todayWeekday = toWeekday(today);
   const week = getWeekOfDate(data.semester, today);
+  // 「仅删本周」删的就是主页上这一周 —— 主页看的是今天所在的周
+  const editor = useEntryEditor(week);
 
   const todayEntries = useMemo(() => {
     const visible = filterEntriesForWeek(data.entries, week);

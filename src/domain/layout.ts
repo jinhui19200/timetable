@@ -98,6 +98,12 @@ export interface TimeAxis {
   timeToY(time: string): number;
 }
 
+/** 一段分组空档（午休 / 晚休）的像素区间。 */
+export interface GapBand {
+  top: number;
+  bottom: number;
+}
+
 /** 网格的纵向度量结果。 */
 export interface RowMetrics {
   /** 每个节次行的顶部 y 坐标，下标与节次表数组下标一致 */
@@ -106,6 +112,14 @@ export interface RowMetrics {
   periodHeights: number[];
   /** 网格主体的总高度 */
   totalHeight: number;
+  /**
+   * 分组空档的像素区间（上午→下午、下午→晚上各一段）。
+   *
+   * 跨空档的记录要在这一段断开，让空档始终露出空白 —— 否则一条「第 1~13 节」的
+   * 整天事件会整块盖住午休，看过去像上午直接连着下午，中间那 95 分钟凭空消失。
+   * 见 segmentBlocks。
+   */
+  gapBands: GapBand[];
 }
 
 /**
@@ -117,12 +131,15 @@ export interface RowMetrics {
 export function buildRowMetrics(periods: PeriodSlot[]): RowMetrics {
   const periodTops: number[] = [];
   const periodHeights: number[] = [];
+  const gapBands: GapBand[] = [];
   let cursor = 0;
   let previousGroup: PeriodGroup | null = null;
 
   for (const slot of periods) {
-    // 跨分组（上午→下午→晚上）时插入额外空档，还原午休 / 晚休的视觉间隔
+    // 跨分组（上午→下午→晚上）时插入额外空档，还原午休 / 晚休的视觉间隔。
+    // 空档的位置一并记下来，供切段时把跨空档的块断开用。
     if (previousGroup !== null && slot.group !== previousGroup) {
+      gapBands.push({ top: cursor, bottom: cursor + GROUP_GAP });
       cursor += GROUP_GAP;
     }
     periodTops.push(cursor);
@@ -131,7 +148,7 @@ export function buildRowMetrics(periods: PeriodSlot[]): RowMetrics {
     previousGroup = slot.group;
   }
 
-  return { periodTops, periodHeights, totalHeight: cursor };
+  return { periodTops, periodHeights, totalHeight: cursor, gapBands };
 }
 
 /** 一个块的像素区间。 */
@@ -287,6 +304,7 @@ function segmentBlocks(
   measured: MeasuredBlock[],
   totalHeight: number,
   floating: boolean,
+  gapBands: GapBand[] = [],
 ): PositionedEntry[] {
   if (measured.length === 0) return [];
 
@@ -304,6 +322,17 @@ function segmentBlocks(
     bounds.add(block.top);
     bounds.add(block.top + block.height);
   }
+
+  // ⚠️ 分组空档的边界**必须也作为切点**。
+  //
+  // 切点只来自各块自身的上下边的话，一条独占一整天的记录只会切出 [2, 878] 一整段 ——
+  // 没有任何切点落在空档里，下面那句「这个段落在空档内吗」就永远匹配不上，
+  // 跨空档的块也就永远不会被断开。（第一版就是这么写的，跑出来块数不变。）
+  for (const band of gapBands) {
+    bounds.add(band.top);
+    bounds.add(band.bottom);
+  }
+
   const sorted = [...bounds].sort((a, b) => a - b);
 
   const segments: PositionedEntry[] = [];
@@ -316,7 +345,23 @@ function segmentBlocks(
     const covering = blocks.filter((block) => block.top < bottom && top < block.top + block.height);
     if (covering.length === 0) continue;
 
-    const entries = covering.map((block) => block.entry);
+    // 落在分组空档（午休 / 晚休）里的那一段，只留「整段时间本来就落在这段空档里」的记录。
+    //
+    // 于是跨空档的块在这里被断开成上下两块，空档保持空白 —— 这正是要的效果：
+    // 一条「第 1~13 节」的整天事件不该把午休整块盖住。
+    //
+    // ⚠️ 只过滤掉**跨过空档**的那些，不是把整段丢掉：午休里真有一条 12:30 的安排时，
+    // 它整段都在空档内，必须照常显示，否则用户会以为那条记录丢了。
+    const band = gapBands.find((item) => top >= item.top - 0.01 && bottom <= item.bottom + 0.01);
+    const visible = band
+      ? covering.filter(
+          (block) =>
+            block.top >= band.top - 0.01 && block.top + block.height <= band.bottom + 0.01,
+        )
+      : covering;
+    if (visible.length === 0) continue;
+
+    const entries = visible.map((block) => block.entry);
     segments.push({
       entries,
       top,
@@ -354,9 +399,12 @@ export function layoutDay(
   const floating = measured.filter((item) => item.floating === true);
   const normal = measured.filter((item) => item.floating !== true);
 
-  // 浮块排在数组后面：DOM 顺序决定层叠，浮块要压在普通课程块上面
+  // 浮块排在数组后面：DOM 顺序决定层叠，浮块要压在普通课程块上面。
+  //
+  // 只有普通块传 gapBands：浮块按 centerOnBoundary 摆在**课间**空档的边界上
+  // （那种空档在网格上占 0 像素，不在分组空档里），按分组空档过滤只会误伤。
   return [
-    ...segmentBlocks(normal, metrics.totalHeight, false),
+    ...segmentBlocks(normal, metrics.totalHeight, false, metrics.gapBands),
     ...segmentBlocks(floating, metrics.totalHeight, true),
   ];
 }

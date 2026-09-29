@@ -84,13 +84,30 @@ export function EntrySheets({
         ) : null}
       </BottomSheet>
 
+      {/*
+        这条记录在当前看的那一周里、且还占着别的周次时，给两个选项：
+        「仅删本周」只把它从这一周的周次规则里去掉（记录保留，其余周照上），
+        「全部周次」删掉整条记录。本来就只占这一周时不问 ——
+        两个选项结果完全一样，多问一句只是添乱。
+      */}
       <ConfirmDialog
         open={pendingDelete !== null}
         title="删除这条记录？"
-        message={pendingDelete ? `「${pendingDelete.title}」将被移除，此操作不可撤销。` : undefined}
-        confirmLabel="删除"
+        message={
+          pendingDelete
+            ? editor.deleteOffersSingleWeek
+              ? `「${pendingDelete.title}」在其他周次也有安排。只删第 ${editor.currentWeek} 周，还是删掉所有周次？`
+              : `「${pendingDelete.title}」将被移除，此操作不可撤销。`
+            : undefined
+        }
+        confirmLabel={editor.deleteOffersSingleWeek ? '全部周次' : '删除'}
         danger
-        onConfirm={editor.confirmDelete}
+        extraAction={
+          editor.deleteOffersSingleWeek
+            ? { label: '仅删本周', onClick: () => editor.confirmDelete('week') }
+            : undefined
+        }
+        onConfirm={() => editor.confirmDelete('all')}
         onCancel={editor.cancelDelete}
       />
 

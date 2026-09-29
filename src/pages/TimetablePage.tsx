@@ -18,7 +18,8 @@ import { useStore } from '../store/useStore';
 export function TimetablePage() {
   const { data } = useStore();
   const { week, setWeek, goToPreviousWeek, goToNextWeek } = useCurrentWeek(data.semester);
-  const editor = useEntryEditor();
+  // 「仅删本周」删的就是课表上正在翻到的那一周
+  const editor = useEntryEditor(week);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (

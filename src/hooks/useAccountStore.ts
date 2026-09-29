@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { Dispatch } from 'react';
 import type { StoreValue, SyncPhase } from '../store/context';
 import {
+  deleteAccountData,
   describeSyncError,
   fetchAccountData,
   listAccounts,
@@ -10,9 +11,11 @@ import {
 import type { AccountSummary } from '../store/accountsApi';
 import {
   clearPendingPush,
+  clearStoredData,
   getAccountName,
   hasLocalData,
   hasPendingPush,
+  isPristineSeedData,
   loadLocalData,
   markPendingPush,
   saveLocalData,
@@ -201,7 +204,7 @@ export function useAccountStore(): StoreValue {
             rawDispatch(appActions.replaceData(remote));
             // 立刻落盘，不等防抖 —— 拉完紧接着用户可能就关掉页面了
             saveLocalData(target, remote);
-          } else if (!remote && hasLocalData(target)) {
+          } else if (!remote && hasLocalData(target) && !isPristineSeedData(target)) {
             // 服务端没有这个账户，但本机有 → 把它建到服务端去。
             //
             // 不建的话会留下一个「幽灵账户」：它只存在于本机，一旦被切走就再也
@@ -209,6 +212,12 @@ export function useAccountStore(): StoreValue {
             // 列表里没有它而被当成「新建」，用一份空数据把它覆盖掉 —— 本机的课表
             // 就这么没了。首次启动的默认账户正好是这个情况：它有种子数据，
             // 但用户只要一直没编辑过，就永远不会被推送。
+            //
+            // ⚠️ 但**没动过的示例数据除外**（`isPristineSeedData`）。它不是用户内容，
+            // 推上去会污染共享的「默认账户」，进而把另一台设备的真实课表顶掉 ——
+            // 实测见 .workbuddy-ai/scripts/probe-seed-clobber.js。
+            // 代价是全新设备的「默认账户」不会出现在服务端列表里，但它里面只有示例课程，
+            // 没有任何值得跨设备读的东西；而当前账户本来就会补在弹窗列表第一行。
             enqueuePush(target, loadLocalData(target, createEmptyAppData()));
           }
         }
@@ -365,6 +374,62 @@ export function useAccountStore(): StoreValue {
     [activate, flushCurrent, list, switchAccount],
   );
 
+  /**
+   * 重命名当前账户。
+   *
+   * 顺序是**先把数据写到新名字下，成功后再删旧名字**。
+   * 反过来（先删旧名字）一旦新名字写失败，数据就没了 —— 而且用户手里
+   * 连一份能手动恢复的东西都没有。
+   *
+   * 反过来失败也无所谓：删旧名字失败的结果是「两个名字下各有一份相同数据」，
+   * 用户看得见、也能自己再删一次，比丢数据好得多。所以这里只告警不抛。
+   *
+   * 失败时抛异常，由调用方（账户卡片）显示原因 —— 重命名是用户主动发起的操作，
+   * 静默失败比报错更糟。
+   */
+  const renameAccount = useCallback(
+    async (next: string) => {
+      const trimmed = next.trim();
+      const current = stateRef.current.name;
+      if (!trimmed || trimmed === current) return;
+
+      // 判重要用**重新拉一次**的列表，不能用手上那份可能过期的 `list`。
+      // 重命名是整份覆盖写新名字，撞上一个我们不知道的同名账户就等于把它抹了。
+      // 拉不到（断网）就退回旧列表 —— 宁可拦错，也不能让覆盖悄悄发生。
+      const fresh = await listAccounts().catch(() => null);
+      const taken = (fresh ?? list).some((item) => item.username === trimmed);
+      // 本机存储也要查：那个名字可能只存在于本机、还没上传过（见 createAccount 的注释）
+      if (taken || hasLocalData(trimmed)) {
+        throw new Error(`已有同名账户「${trimmed}」`);
+      }
+
+      const { data } = stateRef.current;
+
+      // ① 新名字先落袋
+      await pushAccountData(trimmed, data);
+
+      // ② 本机跟着搬过去：本地键、当前账户名、store 里的名字
+      saveLocalData(trimmed, data);
+      activate(trimmed, data, false);
+
+      // ③ 最后删旧名字。这一步失败不回滚 —— 重命名已经成功了，
+      //    只是云端多留了一份同内容的旧数据。
+      try {
+        await deleteAccountData(current);
+        clearStoredData(current);
+        clearPendingPush(current);
+      } catch (cause) {
+        console.warn('[account] 旧账户名没删掉，云端会留下一份同内容的旧数据', cause);
+      }
+
+      // ⚠️ 必须把「有未推送改动的账户」也改掉。留着旧名字的话，
+      // 关页面（pagehide）时的补推会拿旧名字再推一次 ——
+      // 刚删掉的旧账户当场又被建回来，等于重命名没生效。
+      dirtyAccount.current = null;
+    },
+    [activate, list],
+  );
+
   const refreshList = useCallback(() => {
     const target = stateRef.current.name;
     setListLoading(true);
@@ -409,6 +474,7 @@ export function useAccountStore(): StoreValue {
         refreshList,
         switchAccount,
         createAccount,
+        renameAccount,
       },
     }),
     [
@@ -421,6 +487,7 @@ export function useAccountStore(): StoreValue {
       refreshList,
       switchAccount,
       createAccount,
+      renameAccount,
     ],
   );
 }

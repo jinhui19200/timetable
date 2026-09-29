@@ -79,6 +79,41 @@ export function weekRuleContains(rule: WeekRule, week: number): boolean {
 }
 
 /**
+ * 从规则里去掉某一周，返回新的规则。
+ *
+ * 用途：删除记录时选「仅删除本周」—— 那条记录在其余周次要保留下来。
+ *
+ * 做法是把包含这一周的区间**从中间拆成两段**：
+ *   [1, 16, all] 去掉第 5 周 → [1, 4, all] + [6, 16, all]
+ *   [1, 16, odd] 去掉第 5 周 → [1, 4, odd] + [6, 16, odd]
+ * 单双周同样适用：拆出的两段各自带着原来的 parity。第 5 周本来就只在单周里，
+ * 拆完剩下的单周一个不少（1,3 和 7,9,11,13,15）。
+ *
+ * ⚠️ 先判断这一周**确实在规则内**再拆。不判断的话，对一个 [1,16,odd] 的规则
+ * 传进第 6 周（偶数，本来就不在里面）会拆成 [1,5,odd] + [7,16,odd] ——
+ * 第 5 周反而被误删了。调用方本应先判断，这里兜底。
+ *
+ * 注意这个模型表达不了**任意排除**（「除第 5 周以外的单周」如果还有别的例外就写不出来），
+ * 但一次删除只挖一个洞，拆区间足够；连着删两周得到的也仍是合法的多段区间。
+ */
+export function removeWeekFromRule(rule: WeekRule, week: number, totalWeeks: number): WeekRule {
+  if (!weekRuleContains(rule, week)) return cloneWeekRule(rule);
+
+  const ranges: WeekRange[] = [];
+  for (const range of rule.ranges) {
+    const from = Math.min(range.start, range.end);
+    const to = Math.max(range.start, range.end);
+    if (week < from || week > to) {
+      ranges.push({ ...range });
+      continue;
+    }
+    if (from <= week - 1) ranges.push({ start: from, end: week - 1, parity: range.parity });
+    if (week + 1 <= to) ranges.push({ start: week + 1, end: to, parity: range.parity });
+  }
+  return normalizeWeekRule({ ranges }, totalWeeks);
+}
+
+/**
  * 归一化周次规则：交换颠倒的起止、裁剪到 [1, totalWeeks]、丢弃空区间、
  * 按起点排序、合并奇偶性相同且相邻或重叠的区间。
  *

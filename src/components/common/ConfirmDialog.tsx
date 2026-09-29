@@ -5,6 +5,14 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   /** 危险操作（删除）用红色确认按钮 */
   danger?: boolean;
+  /**
+   * 可选的第三个选项，排在「取消」和确认之间。
+   *
+   * 用于「同一个操作有几种作用范围」的情况 —— 目前只有删除记录：
+   * 仅删本周 / 删全部周次。这两个都不是纯粹的「取消」，
+   * 塞进 message 里让用户自己去理解不如直接给两个按钮。
+   */
+  extraAction?: { label: string; onClick: () => void };
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,6 +24,7 @@ export function ConfirmDialog({
   message,
   confirmLabel = '确定',
   danger = false,
+  extraAction,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -30,6 +39,11 @@ export function ConfirmDialog({
           <button type="button" className="dialog__button" onClick={onCancel}>
             取消
           </button>
+          {extraAction ? (
+            <button type="button" className="dialog__button" onClick={extraAction.onClick}>
+              {extraAction.label}
+            </button>
+          ) : null}
           <button
             type="button"
             className={`dialog__button${danger ? ' dialog__button--danger' : ''}`}

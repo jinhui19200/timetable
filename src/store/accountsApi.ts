@@ -96,3 +96,18 @@ export async function pushAccountData(username: string, data: AppData): Promise<
 
   if (!response.ok) throw await readError(response);
 }
+
+/**
+ * 删掉一个账户名。
+ *
+ * 只给**重命名**用：数据先写到新名字下，成功后再删旧名字。
+ * 删一个本来就不存在的账户服务端也返回成功（`deleted: false`），
+ * 所以重试是安全的 —— 第二次调用时旧名字可能已经没了。
+ */
+export async function deleteAccountData(username: string): Promise<void> {
+  const response = await request(`/api/account?name=${encodeURIComponent(username)}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) throw await readError(response);
+}

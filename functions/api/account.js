@@ -150,3 +150,27 @@ export async function onRequestPut(context) {
 
   return json({ username: name, updatedAt: now });
 }
+
+/**
+ * 删除一个账户。
+ *
+ * 用途是**重命名**：先把数据写到新名字下（PUT），成功后再把旧名字删掉。
+ * 顺序不能反 —— 先删旧的、新名字又写失败，数据就没了。
+ *
+ * 删一个本来就不存在的账户**不算错误**：重命名时旧名字可能已经被删过一次，
+ * 这里报 404 只会让客户端以为整个重命名失败、从而不敢继续。
+ * 实际有没有删到用 `deleted` 告诉调用方。
+ */
+export async function onRequestDelete(context) {
+  const { request, env } = context;
+  const name = normalizeUsername(new URL(request.url).searchParams.get('name'));
+
+  const failed = preflight(env, name);
+  if (failed) return failed;
+
+  const result = await env.ACCOUNTS_DB.prepare('DELETE FROM accounts WHERE username = ?1')
+    .bind(name)
+    .run();
+
+  return json({ username: name, deleted: (result.meta?.changes ?? 0) > 0 });
+}

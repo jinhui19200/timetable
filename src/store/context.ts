@@ -30,6 +30,13 @@ export interface AccountValue {
   switchAccount: (name: string) => void;
   /** 新建一个空账户并切过去，同时在服务端把它建出来 */
   createAccount: (name: string) => void;
+  /**
+   * 把当前账户改名。
+   *
+   * 撞名、断网等原因失败时**抛异常**（而不是静默返回）——
+   * 改名是用户主动发起的，失败必须让他知道，否则他会以为改成功了。
+   */
+  renameAccount: (name: string) => Promise<void>;
 }
 
 export interface StoreValue {

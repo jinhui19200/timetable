@@ -149,9 +149,10 @@ export function bootstrapStorage(): void {
   // 旧版数据整体搬过来，而不是丢掉重新种一份 ——
   // 否则用户升级一次就发现自己的课表变回了示例课程，等于「升级把数据弄丢了」。
   //
-  // 只在目标位置还空着时才搬。目标已经有数据就不动：那种情况说明旧 key 是更早的一份，
-  // 搬过去等于用一个很久以前的版本盖掉当前数据。
-  if (legacy !== null && readRaw(acctKey(account, 'data')) === null) {
+  // 两种情况要搬：目标位置还空着；或者目标位置躺着的只是一份**没动过的示例数据**
+  // （那是应用自己种的，用户的真实数据比它重要）。
+  // 不这么判的话，「账户建好了但旧键又冒出来」这种情况会把旧数据直接删掉 —— 静默丢数据。
+  if (legacy !== null && (!hasLocalData(account) || isPristineSeedData(account))) {
     writeRaw(acctKey(account, 'data'), legacy);
   }
   if (legacyBackup !== null && readRaw(acctKey(account, 'backup')) === null) {
@@ -174,6 +175,27 @@ export function bootstrapStorage(): void {
 function envelopeOf(data: AppData): string {
   const envelope: StoredEnvelope = { version: SCHEMA_VERSION, data };
   return JSON.stringify(envelope);
+}
+
+/**
+ * 这个账户在本机那份数据，是不是就是「一份没动过的示例数据」。
+ *
+ * 示例数据是给第一次打开应用的人看的，**不是用户内容**。同步逻辑靠这个判断
+ * 「值不值得上传」—— 判据只写「本机有数据」的话会出这条数据丢失链：
+ *
+ * 1. 全新设备打开应用 → 本机没有数据 → 种一份示例课程
+ * 2. 「本机有、服务端没有就推上去」把这份示例课程推到了**共享的「默认账户」**上
+ * 3. 另一台有真实课表的设备打开 → 启动拉取拿到服务端那份 → 整份替换 →
+ *    真实课表被示例课程顶掉（用户界面上没有任何入口能找回）
+ *
+ * 用**整串比对**而不是「看 id 是不是 seed- 开头」：id 前缀是示例数据的实现细节，
+ * 哪天换了命名就静默失效；整串比对直接对着 bootstrapStorage 写进去的那一份，
+ * 换了命名也仍然成立。
+ *
+ * 实测复现见 `.workbuddy-ai/scripts/probe-seed-clobber.js`。
+ */
+export function isPristineSeedData(account: string): boolean {
+  return readRaw(acctKey(account, 'data')) === envelopeOf(createInitialAppData());
 }
 
 /* ── 当前账户 ─────────────────────────────────────────────── */
@@ -229,10 +251,21 @@ export function saveLocalData(account: string, data: AppData): void {
     if (!storage) return;
 
     const key = acctKey(account, 'data');
+    const next = envelopeOf(data);
     const previous = storage.getItem(key);
-    if (previous !== null) storage.setItem(acctKey(account, 'backup'), previous);
 
-    storage.setItem(key, envelopeOf(data));
+    // 内容没变就什么都不做。
+    //
+    // 这不只是省一次写盘 —— 备份槽只有一层，**连续两次保存会把「上一个可用版本」挤掉**。
+    // 而「拉取完成后紧接着的那次回写」正好是同样的内容存两遍：第一遍把本地旧数据挪进
+    // 备份，第二遍就用刚拉下来的那份把备份覆盖了 —— 于是用户原来那份彻底没了。
+    //
+    // 实测（.workbuddy-ai/scripts/probe-seed-clobber.js）：设备乙迁移过来的真实课表
+    // 被远端数据替换后，主数据和备份里读到的都是远端那份，真实数据两处都不在。
+    if (previous === next) return;
+
+    if (previous !== null) storage.setItem(acctKey(account, 'backup'), previous);
+    storage.setItem(key, next);
   } catch (error) {
     console.warn('[persistence] 保存失败，本次改动可能没有落盘', error);
   }
